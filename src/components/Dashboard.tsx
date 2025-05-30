@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Plus, Code, Play, LogOut, User, MessageSquare, FileText, Bot } from 'lucide-react';
+import { Plus, Code, Play, LogOut, User, MessageSquare, FileText, Bot, Rocket, Settings, Monitor } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -17,10 +17,14 @@ import CreateProjectDialog from './CreateProjectDialog';
 import EnhancedChatInterface from './EnhancedChatInterface';
 import EnhancedFileExplorer from './EnhancedFileExplorer';
 import AutonomousAgentPanel from './AutonomousAgentPanel';
+import BuildStatus from './BuildStatus';
+import DeploymentManager from './DeploymentManager';
+import EnvironmentVariables from './EnvironmentVariables';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
 import { useConversations } from '@/hooks/useConversations';
 import { useCodeFiles } from '@/hooks/useCodeFiles';
+import { useBuildSystem } from '@/hooks/useBuildSystem';
 import type { Database } from '@/integrations/supabase/types';
 
 type Project = Database['public']['Tables']['projects']['Row'];
@@ -36,6 +40,7 @@ const Dashboard = () => {
 
   const { conversations, createConversation } = useConversations(activeProject?.id);
   const { updateCodeFile } = useCodeFiles(activeProject?.id);
+  const { triggerBuild } = useBuildSystem(activeProject?.id);
 
   const handleProjectSelect = (project: Project) => {
     setActiveProject(project);
@@ -72,13 +77,19 @@ const Dashboard = () => {
     });
   };
 
+  const handleTriggerBuild = async () => {
+    if (!activeProject) return;
+    
+    await triggerBuild.mutateAsync({
+      project_id: activeProject.id,
+      build_command: 'npm run build',
+      status: 'queued',
+    });
+  };
+
   const handleTryFix = () => {
     console.log('Attempting to fix error with AI Agent...');
     setCurrentError(null);
-  };
-
-  const handleDeploy = () => {
-    console.log('Deploying project...');
   };
 
   const handleRun = () => {
@@ -168,8 +179,9 @@ const Dashboard = () => {
                       <Play className="h-4 w-4 mr-2" />
                       Run
                     </Button>
-                    <Button onClick={handleDeploy} className="bg-gray-900 hover:bg-gray-800">
-                      Deploy
+                    <Button onClick={handleTriggerBuild} className="bg-gray-900 hover:bg-gray-800">
+                      <Rocket className="h-4 w-4 mr-2" />
+                      Build & Deploy
                     </Button>
                   </div>
                 </div>
@@ -194,11 +206,11 @@ const Dashboard = () => {
                   />
                 </div>
 
-                {/* Editor and Chat Tabs */}
+                {/* Editor and Tabs */}
                 <div className="flex-1 flex flex-col">
                   <Tabs defaultValue="editor" className="flex-1 flex flex-col">
                     <div className="bg-white border-b border-gray-200 px-4">
-                      <TabsList className="grid w-fit grid-cols-3">
+                      <TabsList className="grid w-fit grid-cols-5">
                         <TabsTrigger value="editor" className="flex items-center gap-2">
                           <FileText className="h-4 w-4" />
                           Editor
@@ -210,6 +222,14 @@ const Dashboard = () => {
                         <TabsTrigger value="autonomous" className="flex items-center gap-2">
                           <Bot className="h-4 w-4" />
                           Autonomous Agent
+                        </TabsTrigger>
+                        <TabsTrigger value="deploy" className="flex items-center gap-2">
+                          <Rocket className="h-4 w-4" />
+                          Deploy
+                        </TabsTrigger>
+                        <TabsTrigger value="settings" className="flex items-center gap-2">
+                          <Settings className="h-4 w-4" />
+                          Settings
                         </TabsTrigger>
                       </TabsList>
                     </div>
@@ -262,6 +282,40 @@ const Dashboard = () => {
 
                     <TabsContent value="autonomous" className="flex-1 m-0">
                       <AutonomousAgentPanel projectId={activeProject.id} />
+                    </TabsContent>
+
+                    <TabsContent value="deploy" className="flex-1 m-0 p-6 overflow-y-auto">
+                      <div className="max-w-4xl mx-auto space-y-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          <BuildStatus 
+                            projectId={activeProject.id}
+                            onTriggerBuild={handleTriggerBuild}
+                          />
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="flex items-center gap-2">
+                                <Monitor className="h-5 w-5" />
+                                Live Preview
+                              </CardTitle>
+                              <CardDescription>
+                                Preview your deployed application
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
+                                <p className="text-gray-500">Preview will appear here after deployment</p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                        <DeploymentManager projectId={activeProject.id} />
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="settings" className="flex-1 m-0 p-6 overflow-y-auto">
+                      <div className="max-w-4xl mx-auto">
+                        <EnvironmentVariables projectId={activeProject.id} />
+                      </div>
                     </TabsContent>
                   </Tabs>
                 </div>
