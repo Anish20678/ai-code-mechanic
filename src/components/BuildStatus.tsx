@@ -9,11 +9,17 @@ import { formatDistanceToNow } from 'date-fns';
 
 interface BuildStatusProps {
   projectId: string;
-  onTriggerBuild: () => void;
+  onTriggerBuild?: () => void;
 }
 
-const BuildStatus = ({ projectId, onTriggerBuild }: BuildStatusProps) => {
-  const { buildJobs, latestBuild, isBuilding, isLoading } = useBuildSystem(projectId);
+const BuildStatus = ({ projectId }: BuildStatusProps) => {
+  const { buildJobs, latestBuild, isBuilding, isLoading, triggerBuild } = useBuildSystem(projectId);
+
+  const handleTriggerBuild = () => {
+    triggerBuild.mutate({
+      build_command: 'npm run build'
+    });
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -67,16 +73,16 @@ const BuildStatus = ({ projectId, onTriggerBuild }: BuildStatusProps) => {
         </div>
         <Button 
           size="sm" 
-          onClick={onTriggerBuild}
-          disabled={isBuilding}
+          onClick={handleTriggerBuild}
+          disabled={isBuilding || triggerBuild.isPending}
           className="h-8"
         >
-          {isBuilding ? (
+          {isBuilding || triggerBuild.isPending ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
           ) : (
             <PlayCircle className="h-4 w-4 mr-2" />
           )}
-          {isBuilding ? 'Building...' : 'Build'}
+          {isBuilding || triggerBuild.isPending ? 'Building...' : 'Build'}
         </Button>
       </CardHeader>
       <CardContent>

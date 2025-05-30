@@ -100,6 +100,56 @@ export type Database = {
           },
         ]
       }
+      build_jobs: {
+        Row: {
+          artifact_url: string | null
+          build_command: string
+          build_log: string | null
+          completed_at: string | null
+          created_at: string
+          duration: number | null
+          id: string
+          project_id: string
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          artifact_url?: string | null
+          build_command?: string
+          build_log?: string | null
+          completed_at?: string | null
+          created_at?: string
+          duration?: number | null
+          id?: string
+          project_id: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          artifact_url?: string | null
+          build_command?: string
+          build_log?: string | null
+          completed_at?: string | null
+          created_at?: string
+          duration?: number | null
+          id?: string
+          project_id?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "build_jobs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       code_analysis: {
         Row: {
           analysis_type: string
@@ -226,6 +276,94 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "conversations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deployments: {
+        Row: {
+          build_command: string
+          completed_at: string | null
+          created_at: string
+          deployment_log: string | null
+          duration: number | null
+          environment: string
+          id: string
+          project_id: string
+          started_at: string | null
+          status: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          build_command?: string
+          completed_at?: string | null
+          created_at?: string
+          deployment_log?: string | null
+          duration?: number | null
+          environment?: string
+          id?: string
+          project_id: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          build_command?: string
+          completed_at?: string | null
+          created_at?: string
+          deployment_log?: string | null
+          duration?: number | null
+          environment?: string
+          id?: string
+          project_id?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deployments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      environments: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          project_id: string
+          updated_at: string
+          variables: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          project_id: string
+          updated_at?: string
+          variables?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          project_id?: string
+          updated_at?: string
+          variables?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "environments_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"

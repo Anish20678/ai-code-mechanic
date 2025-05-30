@@ -2,11 +2,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import type { Database } from '@/integrations/supabase/types';
 
-type Environment = Database['public']['Tables']['environments']['Row'];
-type EnvironmentInsert = Database['public']['Tables']['environments']['Insert'];
-type EnvironmentUpdate = Database['public']['Tables']['environments']['Update'];
+// Define types based on the database schema we just created
+type Environment = {
+  id: string;
+  project_id: string;
+  name: string;
+  variables: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+};
+
+type EnvironmentInsert = Omit<Environment, 'id' | 'created_at' | 'updated_at'>;
+type EnvironmentUpdate = Partial<EnvironmentInsert> & { id: string };
 
 export const useEnvironments = (projectId?: string) => {
   const { toast } = useToast();
@@ -30,7 +38,7 @@ export const useEnvironments = (projectId?: string) => {
   });
 
   const createEnvironment = useMutation({
-    mutationFn: async (environment: Omit<EnvironmentInsert, 'id'>) => {
+    mutationFn: async (environment: EnvironmentInsert) => {
       const { data, error } = await supabase
         .from('environments')
         .insert(environment)
@@ -57,7 +65,7 @@ export const useEnvironments = (projectId?: string) => {
   });
 
   const updateEnvironment = useMutation({
-    mutationFn: async ({ id, ...updates }: EnvironmentUpdate & { id: string }) => {
+    mutationFn: async ({ id, ...updates }: EnvironmentUpdate) => {
       const { data, error } = await supabase
         .from('environments')
         .update(updates)

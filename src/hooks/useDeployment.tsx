@@ -2,10 +2,24 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import type { Database } from '@/integrations/supabase/types';
 
-type Deployment = Database['public']['Tables']['deployments']['Row'];
-type DeploymentInsert = Database['public']['Tables']['deployments']['Insert'];
+// Define types based on the database schema we just created
+type Deployment = {
+  id: string;
+  project_id: string;
+  environment: string;
+  build_command: string;
+  status: 'queued' | 'deploying' | 'success' | 'failed';
+  deployment_log: string | null;
+  url: string | null;
+  duration: number | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type DeploymentInsert = Omit<Deployment, 'id' | 'created_at' | 'updated_at'>;
 
 export const useDeployment = (projectId?: string) => {
   const { toast } = useToast();
@@ -30,10 +44,24 @@ export const useDeployment = (projectId?: string) => {
   });
 
   const deploy = useMutation({
-    mutationFn: async (deploymentConfig: Omit<DeploymentInsert, 'id'>) => {
+    mutationFn: async (deploymentConfig: Partial<DeploymentInsert>) => {
+      if (!projectId) throw new Error('Project ID is required');
+
+      const deploymentData = {
+        project_id: projectId,
+        environment: deploymentConfig.environment || 'production',
+        build_command: deploymentConfig.build_command || 'npm run build',
+        status: 'queued' as const,
+        deployment_log: null,
+        url: null,
+        duration: null,
+        started_at: null,
+        completed_at: null,
+      };
+
       const { data, error } = await supabase
         .from('deployments')
-        .insert(deploymentConfig)
+        .insert(deploymentData)
         .select()
         .single();
 
@@ -41,7 +69,7 @@ export const useDeployment = (projectId?: string) => {
 
       // Trigger deployment via edge function
       const { error: deployError } = await supabase.functions.invoke('deployment-system', {
-        body: { deploymentId: data.id, projectId: deploymentConfig.project_id }
+        body: { deploymentId: data.id, projectId }
       });
 
       if (deployError) throw deployError;
