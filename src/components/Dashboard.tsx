@@ -197,7 +197,7 @@ const Dashboard = () => {
                 <div className="flex-1 flex flex-col">
                   <Tabs defaultValue="editor" className="flex-1 flex flex-col">
                     <div className="bg-white border-b border-gray-200 px-4">
-                      <TabsList className="grid w-fit grid-cols-2">
+                      <TabsList className="grid w-fit grid-cols-3">
                         <TabsTrigger value="editor" className="flex items-center gap-2">
                           <FileText className="h-4 w-4" />
                           Editor
@@ -205,6 +205,10 @@ const Dashboard = () => {
                         <TabsTrigger value="chat" className="flex items-center gap-2">
                           <MessageSquare className="h-4 w-4" />
                           AI Assistant
+                        </TabsTrigger>
+                        <TabsTrigger value="autonomous" className="flex items-center gap-2">
+                          <Bot className="h-4 w-4" />
+                          Autonomous Agent
                         </TabsTrigger>
                       </TabsList>
                     </div>
@@ -253,6 +257,10 @@ const Dashboard = () => {
                           </div>
                         </div>
                       )}
+                    </TabsContent>
+
+                    <TabsContent value="autonomous" className="flex-1 m-0">
+                      <AutonomousAgentPanel projectId={activeProject.id} />
                     </TabsContent>
                   </Tabs>
                 </div>

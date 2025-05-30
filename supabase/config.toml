@@ -31,3 +31,6 @@ verify_jwt = true
 
 [functions.code-generator]
 verify_jwt = true
+
+[functions.autonomous-agent]
+verify_jwt = true
