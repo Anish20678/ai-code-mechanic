@@ -2,14 +2,10 @@
 import { Clock, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { formatDistanceToNow } from 'date-fns';
+import type { Database } from '@/integrations/supabase/types';
 
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  lastModified: string;
-  status: 'active' | 'error' | 'deploying';
-}
+type Project = Database['public']['Tables']['projects']['Row'];
 
 interface ProjectCardProps {
   project: Project;
@@ -26,6 +22,8 @@ const ProjectCard = ({ project, isActive, onClick }: ProjectCardProps) => {
         return <AlertCircle className="h-4 w-4 text-red-500" />;
       case 'deploying':
         return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
+      case 'archived':
+        return <AlertCircle className="h-4 w-4 text-gray-500" />;
       default:
         return null;
     }
@@ -39,8 +37,25 @@ const ProjectCard = ({ project, isActive, onClick }: ProjectCardProps) => {
         return 'Error';
       case 'deploying':
         return 'Deploying';
+      case 'archived':
+        return 'Archived';
       default:
         return '';
+    }
+  };
+
+  const getStatusColor = () => {
+    switch (project.status) {
+      case 'active':
+        return 'text-green-600';
+      case 'error':
+        return 'text-red-600';
+      case 'deploying':
+        return 'text-blue-600';
+      case 'archived':
+        return 'text-gray-600';
+      default:
+        return 'text-gray-600';
     }
   };
 
@@ -61,24 +76,21 @@ const ProjectCard = ({ project, isActive, onClick }: ProjectCardProps) => {
           </h4>
           <div className="flex items-center space-x-1 flex-shrink-0">
             {getStatusIcon()}
-            <span className={cn(
-              "text-xs font-medium",
-              project.status === 'active' && "text-green-600",
-              project.status === 'error' && "text-red-600",
-              project.status === 'deploying' && "text-blue-600"
-            )}>
+            <span className={cn("text-xs font-medium", getStatusColor())}>
               {getStatusText()}
             </span>
           </div>
         </div>
         
-        <p className="text-sm text-gray-500 mb-3 line-clamp-2">
-          {project.description}
-        </p>
+        {project.description && (
+          <p className="text-sm text-gray-500 mb-3 line-clamp-2">
+            {project.description}
+          </p>
+        )}
         
         <div className="flex items-center text-xs text-gray-400">
           <Clock className="h-3 w-3 mr-1" />
-          {project.lastModified}
+          {formatDistanceToNow(new Date(project.updated_at), { addSuffix: true })}
         </div>
       </CardContent>
     </Card>
