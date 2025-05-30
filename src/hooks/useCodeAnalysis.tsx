@@ -4,39 +4,37 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
-type CodeFile = Database['public']['Tables']['code_files']['Row'];
-type CodeFileInsert = Database['public']['Tables']['code_files']['Insert'];
-type CodeFileUpdate = Database['public']['Tables']['code_files']['Update'];
+type CodeAnalysis = Database['public']['Tables']['code_analysis']['Row'];
+type CodeAnalysisInsert = Database['public']['Tables']['code_analysis']['Insert'];
+type CodeAnalysisUpdate = Database['public']['Tables']['code_analysis']['Update'];
 
-export const useCodeFiles = (projectId?: string) => {
+export const useCodeAnalysis = (projectId?: string) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: codeFiles, isLoading } = useQuery({
-    queryKey: ['codeFiles', projectId],
+  const { data: analyses, isLoading } = useQuery({
+    queryKey: ['codeAnalysis', projectId],
     queryFn: async () => {
       if (!projectId) return [];
       
       const { data, error } = await supabase
-        .from('code_files')
-        .select(`
-          *,
-          projects!inner(user_id)
-        `)
+        .from('code_analysis')
+        .select('*')
         .eq('project_id', projectId)
-        .order('file_path', { ascending: true });
+        .eq('status', 'open')
+        .order('severity', { ascending: false });
 
       if (error) throw error;
-      return data as CodeFile[];
+      return data as CodeAnalysis[];
     },
     enabled: !!projectId,
   });
 
-  const createCodeFile = useMutation({
-    mutationFn: async (codeFile: Omit<CodeFileInsert, 'id'>) => {
+  const createAnalysis = useMutation({
+    mutationFn: async (analysis: Omit<CodeAnalysisInsert, 'id'>) => {
       const { data, error } = await supabase
-        .from('code_files')
-        .insert(codeFile)
+        .from('code_analysis')
+        .insert(analysis)
         .select()
         .single();
 
@@ -44,11 +42,7 @@ export const useCodeFiles = (projectId?: string) => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['codeFiles'] });
-      toast({
-        title: "File created",
-        description: "Code file created successfully.",
-      });
+      queryClient.invalidateQueries({ queryKey: ['codeAnalysis'] });
     },
     onError: (error: any) => {
       toast({
@@ -59,10 +53,10 @@ export const useCodeFiles = (projectId?: string) => {
     },
   });
 
-  const updateCodeFile = useMutation({
-    mutationFn: async ({ id, ...updates }: CodeFileUpdate & { id: string }) => {
+  const updateAnalysis = useMutation({
+    mutationFn: async ({ id, ...updates }: CodeAnalysisUpdate & { id: string }) => {
       const { data, error } = await supabase
-        .from('code_files')
+        .from('code_analysis')
         .update(updates)
         .eq('id', id)
         .select()
@@ -72,7 +66,7 @@ export const useCodeFiles = (projectId?: string) => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['codeFiles'] });
+      queryClient.invalidateQueries({ queryKey: ['codeAnalysis'] });
     },
     onError: (error: any) => {
       toast({
@@ -84,9 +78,9 @@ export const useCodeFiles = (projectId?: string) => {
   });
 
   return {
-    codeFiles,
+    analyses,
     isLoading,
-    createCodeFile,
-    updateCodeFile,
+    createAnalysis,
+    updateAnalysis,
   };
 };

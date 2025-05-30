@@ -4,39 +4,39 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
-type Project = Database['public']['Tables']['projects']['Row'];
-type ProjectInsert = Database['public']['Tables']['projects']['Insert'];
-type ProjectUpdate = Database['public']['Tables']['projects']['Update'];
+type UserProfile = Database['public']['Tables']['user_profiles']['Row'];
+type UserProfileInsert = Database['public']['Tables']['user_profiles']['Insert'];
+type UserProfileUpdate = Database['public']['Tables']['user_profiles']['Update'];
 
-export const useProjects = () => {
+export const useUserProfiles = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: projects, isLoading } = useQuery({
-    queryKey: ['projects'],
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ['userProfile'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
+      if (!user) return null;
 
       const { data, error } = await supabase
-        .from('projects')
+        .from('user_profiles')
         .select('*')
         .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
+        .single();
 
-      if (error) throw error;
-      return data as Project[];
+      if (error && error.code !== 'PGRST116') throw error;
+      return data as UserProfile | null;
     },
   });
 
-  const createProject = useMutation({
-    mutationFn: async (project: Omit<ProjectInsert, 'user_id'>) => {
+  const createProfile = useMutation({
+    mutationFn: async (profile: Omit<UserProfileInsert, 'user_id'>) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
-        .from('projects')
-        .insert({ ...project, user_id: user.id })
+        .from('user_profiles')
+        .insert({ ...profile, user_id: user.id })
         .select()
         .single();
 
@@ -44,10 +44,10 @@ export const useProjects = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
       toast({
-        title: "Project created",
-        description: "Your new project has been created successfully.",
+        title: "Profile created",
+        description: "Your profile has been created successfully.",
       });
     },
     onError: (error: any) => {
@@ -59,12 +59,15 @@ export const useProjects = () => {
     },
   });
 
-  const updateProject = useMutation({
-    mutationFn: async ({ id, ...updates }: ProjectUpdate & { id: string }) => {
+  const updateProfile = useMutation({
+    mutationFn: async (updates: UserProfileUpdate) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
       const { data, error } = await supabase
-        .from('projects')
+        .from('user_profiles')
         .update(updates)
-        .eq('id', id)
+        .eq('user_id', user.id)
         .select()
         .single();
 
@@ -72,10 +75,10 @@ export const useProjects = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
       toast({
-        title: "Project updated",
-        description: "Your project has been updated successfully.",
+        title: "Profile updated",
+        description: "Your profile has been updated successfully.",
       });
     },
     onError: (error: any) => {
@@ -88,9 +91,9 @@ export const useProjects = () => {
   });
 
   return {
-    projects,
+    profile,
     isLoading,
-    createProject,
-    updateProject,
+    createProfile,
+    updateProfile,
   };
 };

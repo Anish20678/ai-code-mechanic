@@ -4,39 +4,40 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
-type Project = Database['public']['Tables']['projects']['Row'];
-type ProjectInsert = Database['public']['Tables']['projects']['Insert'];
-type ProjectUpdate = Database['public']['Tables']['projects']['Update'];
+type AISession = Database['public']['Tables']['ai_sessions']['Row'];
+type AISessionInsert = Database['public']['Tables']['ai_sessions']['Insert'];
+type AISessionUpdate = Database['public']['Tables']['ai_sessions']['Update'];
 
-export const useProjects = () => {
+export const useAISessions = (projectId?: string) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: projects, isLoading } = useQuery({
-    queryKey: ['projects'],
+  const { data: sessions, isLoading } = useQuery({
+    queryKey: ['aiSessions', projectId],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
-
+      if (!projectId) return [];
+      
       const { data, error } = await supabase
-        .from('projects')
+        .from('ai_sessions')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('project_id', projectId)
+        .eq('status', 'active')
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
-      return data as Project[];
+      return data as AISession[];
     },
+    enabled: !!projectId,
   });
 
-  const createProject = useMutation({
-    mutationFn: async (project: Omit<ProjectInsert, 'user_id'>) => {
+  const createSession = useMutation({
+    mutationFn: async (session: Omit<AISessionInsert, 'user_id'>) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
-        .from('projects')
-        .insert({ ...project, user_id: user.id })
+        .from('ai_sessions')
+        .insert({ ...session, user_id: user.id })
         .select()
         .single();
 
@@ -44,10 +45,10 @@ export const useProjects = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['aiSessions'] });
       toast({
-        title: "Project created",
-        description: "Your new project has been created successfully.",
+        title: "Session created",
+        description: "New AI session created successfully.",
       });
     },
     onError: (error: any) => {
@@ -59,10 +60,10 @@ export const useProjects = () => {
     },
   });
 
-  const updateProject = useMutation({
-    mutationFn: async ({ id, ...updates }: ProjectUpdate & { id: string }) => {
+  const updateSession = useMutation({
+    mutationFn: async ({ id, ...updates }: AISessionUpdate & { id: string }) => {
       const { data, error } = await supabase
-        .from('projects')
+        .from('ai_sessions')
         .update(updates)
         .eq('id', id)
         .select()
@@ -72,11 +73,7 @@ export const useProjects = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast({
-        title: "Project updated",
-        description: "Your project has been updated successfully.",
-      });
+      queryClient.invalidateQueries({ queryKey: ['aiSessions'] });
     },
     onError: (error: any) => {
       toast({
@@ -88,9 +85,9 @@ export const useProjects = () => {
   });
 
   return {
-    projects,
+    sessions,
     isLoading,
-    createProject,
-    updateProject,
+    createSession,
+    updateSession,
   };
 };

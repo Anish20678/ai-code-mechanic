@@ -4,40 +4,34 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
-type Message = Database['public']['Tables']['messages']['Row'];
-type MessageInsert = Database['public']['Tables']['messages']['Insert'];
+type AIMessage = Database['public']['Tables']['ai_messages']['Row'];
+type AIMessageInsert = Database['public']['Tables']['ai_messages']['Insert'];
 
-export const useMessages = (conversationId?: string) => {
+export const useAIMessages = (sessionId?: string) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: messages, isLoading } = useQuery({
-    queryKey: ['messages', conversationId],
+    queryKey: ['aiMessages', sessionId],
     queryFn: async () => {
-      if (!conversationId) return [];
+      if (!sessionId) return [];
       
       const { data, error } = await supabase
-        .from('messages')
-        .select(`
-          *,
-          conversations!inner(
-            project_id,
-            projects!inner(user_id)
-          )
-        `)
-        .eq('conversation_id', conversationId)
+        .from('ai_messages')
+        .select('*')
+        .eq('session_id', sessionId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      return data as Message[];
+      return data as AIMessage[];
     },
-    enabled: !!conversationId,
+    enabled: !!sessionId,
   });
 
   const createMessage = useMutation({
-    mutationFn: async (message: Omit<MessageInsert, 'id'>) => {
+    mutationFn: async (message: Omit<AIMessageInsert, 'id'>) => {
       const { data, error } = await supabase
-        .from('messages')
+        .from('ai_messages')
         .insert(message)
         .select()
         .single();
@@ -46,7 +40,7 @@ export const useMessages = (conversationId?: string) => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages'] });
+      queryClient.invalidateQueries({ queryKey: ['aiMessages'] });
     },
     onError: (error: any) => {
       toast({

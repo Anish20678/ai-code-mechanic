@@ -18,7 +18,10 @@ export const useConversations = (projectId?: string) => {
       
       const { data, error } = await supabase
         .from('conversations')
-        .select('*')
+        .select(`
+          *,
+          projects!inner(user_id)
+        `)
         .eq('project_id', projectId)
         .order('updated_at', { ascending: false });
 
