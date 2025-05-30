@@ -19,61 +19,97 @@ serve(async (req) => {
   }
 
   try {
-    const { projectId, task, taskType } = await req.json();
+    const { projectId, task, taskType, operation } = await req.json();
     
-    console.log('Autonomous Agent called with:', { projectId, task, taskType });
+    console.log('Autonomous Agent called with:', { projectId, task, taskType, operation });
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Get existing project files for context
+    // Get existing project files for context with better structure
     const { data: existingFiles } = await supabase
       .from('code_files')
       .select('*')
       .eq('project_id', projectId);
 
-    // Enhanced system prompt for autonomous development
-    const systemPrompt = `You are an autonomous AI coding agent with full development capabilities. You can create complete applications, manage dependencies, and handle the entire development workflow.
+    // Build comprehensive project context
+    const projectContext = {
+      totalFiles: existingFiles?.length || 0,
+      fileStructure: existingFiles?.reduce((acc, file) => {
+        const parts = file.file_path.split('/');
+        const folder = parts.length > 1 ? parts[0] : 'root';
+        if (!acc[folder]) acc[folder] = [];
+        acc[folder].push({
+          path: file.file_path,
+          size: file.content?.length || 0,
+          lastModified: file.updated_at
+        });
+        return acc;
+      }, {} as Record<string, any[]>) || {},
+      recentFiles: existingFiles?.slice(-5).map(f => ({
+        path: f.file_path,
+        preview: f.content?.substring(0, 200) + '...'
+      })) || []
+    };
 
-Current project context:
+    // Enhanced system prompt for autonomous development
+    const systemPrompt = `You are an advanced autonomous AI coding agent with comprehensive development capabilities. You can read, analyze, create, modify, and manage files with contextual understanding.
+
+CURRENT PROJECT ANALYSIS:
 - Project ID: ${projectId}
 - Task Type: ${taskType}
-- Existing files: ${existingFiles ? JSON.stringify(existingFiles.map(f => ({ path: f.file_path, content: f.content?.substring(0, 200) + '...' })), null, 2) : 'No files'}
+- Operation: ${operation || 'general'}
+- Total Files: ${projectContext.totalFiles}
+- File Structure: ${JSON.stringify(projectContext.fileStructure, null, 2)}
+- Recent Activity: ${JSON.stringify(projectContext.recentFiles, null, 2)}
 
-Your capabilities:
-1. Create multiple related files and components
-2. Manage dependencies and package installations
-3. Write production-ready, tested code
-4. Follow best practices and modern development patterns
-5. Create complete features with proper error handling
-6. Set up project structure and configuration
+ENHANCED CAPABILITIES:
+1. **File Operations**: Create, read, update, delete, rename, duplicate files
+2. **Code Analysis**: Understand existing patterns, dependencies, and architecture
+3. **Context Awareness**: Consider project structure and existing implementations
+4. **Smart Integration**: Ensure new code integrates seamlessly with existing codebase
+5. **Best Practices**: Follow React, TypeScript, and modern development patterns
+6. **Error Prevention**: Anticipate and prevent common integration issues
 
-Guidelines:
-1. Think holistically about the entire feature/component
-2. Create all necessary files (components, hooks, types, etc.)
-3. Include proper TypeScript types and interfaces
-4. Use modern React patterns (hooks, functional components)
-5. Implement proper error handling and loading states
-6. Follow the existing code patterns in the project
-7. Create reusable, maintainable code
-8. Include helpful comments and documentation
+OPERATION TYPES:
+- create_files: Generate new files with proper integration
+- modify_files: Update existing files while preserving functionality
+- analyze_project: Examine codebase and provide insights
+- refactor_code: Improve code structure and organization
+- fix_issues: Debug and resolve problems
+- add_features: Implement new functionality
 
-Response format:
-Provide a JSON response with:
+RESPONSE FORMAT REQUIREMENTS:
+Provide a JSON response with this exact structure:
 {
   "result": "Brief description of what was accomplished",
-  "filesCreated": ["array", "of", "file", "paths"],
-  "dependenciesAdded": ["array", "of", "npm", "packages"],
-  "code": {
-    "filename1.tsx": "file content here",
-    "filename2.ts": "file content here"
+  "operations": {
+    "created": ["array of created file paths"],
+    "modified": ["array of modified file paths"], 
+    "deleted": ["array of deleted file paths"]
   },
-  "instructions": "Any additional setup instructions for the user"
+  "code": {
+    "filename1.tsx": "complete file content",
+    "filename2.ts": "complete file content"
+  },
+  "analysis": {
+    "projectInsights": "analysis of project structure and patterns",
+    "integrationNotes": "how new code integrates with existing",
+    "recommendations": "suggestions for improvement"
+  },
+  "dependencies": ["array of npm packages needed"],
+  "instructions": "Any additional setup instructions"
 }
 
-Be thorough and create complete, working solutions.`;
+CRITICAL REQUIREMENTS:
+1. Always analyze existing code patterns before implementing
+2. Ensure new code follows existing architectural patterns
+3. Maintain consistent naming conventions and file organization
+4. Include proper TypeScript types and error handling
+5. Consider performance and accessibility
+6. Provide complete, production-ready code`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -85,9 +121,9 @@ Be thorough and create complete, working solutions.`;
         model: 'gpt-4o',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Task: ${task}\n\nCreate a complete implementation for this task. Consider all necessary files, components, hooks, and dependencies.` }
+          { role: 'user', content: `Task: ${task}\n\nAnalyze the current project structure and implement this task with full contextual awareness. Consider how this fits into the existing codebase and ensure seamless integration.` }
         ],
-        temperature: 0.3,
+        temperature: 0.2,
         max_tokens: 4000,
       }),
     });
@@ -100,55 +136,95 @@ Be thorough and create complete, working solutions.`;
     const data = await response.json();
     let aiResponse = data.choices[0].message.content;
 
-    // Try to parse JSON response
+    // Enhanced JSON parsing with better error handling
     let parsedResponse;
     try {
-      // Extract JSON from the response if it's wrapped in markdown
       const jsonMatch = aiResponse.match(/```json\n([\s\S]*?)\n```/) || aiResponse.match(/```\n([\s\S]*?)\n```/);
       if (jsonMatch) {
         aiResponse = jsonMatch[1];
       }
       parsedResponse = JSON.parse(aiResponse);
     } catch (parseError) {
-      // Fallback: create a basic response structure
+      console.error('JSON parsing error:', parseError);
       parsedResponse = {
         result: "AI provided response but couldn't parse structured output",
-        filesCreated: [],
-        dependenciesAdded: [],
+        operations: { created: [], modified: [], deleted: [] },
         code: {},
+        analysis: {
+          projectInsights: "Response parsing failed",
+          integrationNotes: "Unable to extract structured data",
+          recommendations: aiResponse.substring(0, 500)
+        },
+        dependencies: [],
         instructions: aiResponse
       };
     }
 
-    // Create files in the database if code was provided
-    const filesCreated = [];
+    // Process file operations
+    const operationResults = {
+      created: [],
+      modified: [],
+      deleted: [],
+      errors: []
+    };
+
+    // Handle file creation and modification
     if (parsedResponse.code && typeof parsedResponse.code === 'object') {
       for (const [filename, content] of Object.entries(parsedResponse.code)) {
         try {
-          const { data: newFile, error: fileError } = await supabase
+          // Check if file already exists
+          const { data: existingFile } = await supabase
             .from('code_files')
-            .insert({
-              project_id: projectId,
-              file_path: filename,
-              content: content as string
-            })
-            .select()
+            .select('id')
+            .eq('project_id', projectId)
+            .eq('file_path', filename)
             .single();
 
-          if (!fileError && newFile) {
-            filesCreated.push(filename);
+          if (existingFile) {
+            // Update existing file
+            const { error } = await supabase
+              .from('code_files')
+              .update({ 
+                content: content as string,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', existingFile.id);
+
+            if (!error) {
+              operationResults.modified.push(filename);
+            } else {
+              operationResults.errors.push(`Failed to update ${filename}: ${error.message}`);
+            }
+          } else {
+            // Create new file
+            const { error } = await supabase
+              .from('code_files')
+              .insert({
+                project_id: projectId,
+                file_path: filename,
+                content: content as string
+              });
+
+            if (!error) {
+              operationResults.created.push(filename);
+            } else {
+              operationResults.errors.push(`Failed to create ${filename}: ${error.message}`);
+            }
           }
-        } catch (fileCreateError) {
-          console.error('Error creating file:', filename, fileCreateError);
+        } catch (fileError) {
+          console.error('Error processing file:', filename, fileError);
+          operationResults.errors.push(`Error processing ${filename}: ${fileError.message}`);
         }
       }
     }
 
     const finalResponse = {
       result: parsedResponse.result || "Task completed",
-      filesCreated: filesCreated,
-      dependenciesAdded: parsedResponse.dependenciesAdded || [],
-      instructions: parsedResponse.instructions || ""
+      operations: operationResults,
+      analysis: parsedResponse.analysis || {},
+      dependencies: parsedResponse.dependencies || [],
+      instructions: parsedResponse.instructions || "",
+      errors: operationResults.errors
     };
 
     return new Response(JSON.stringify(finalResponse), {
@@ -157,7 +233,11 @@ Be thorough and create complete, working solutions.`;
 
   } catch (error) {
     console.error('Error in autonomous agent:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      result: "Task failed",
+      operations: { created: [], modified: [], deleted: [] }
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

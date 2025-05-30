@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { File, Folder, Plus, FolderOpen, Trash2, Edit2 } from 'lucide-react';
+import { File, Folder, Plus, FolderOpen, Trash2, Edit2, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -34,7 +34,15 @@ const EnhancedFileExplorer = ({ projectId, selectedFile, onFileSelect }: Enhance
   const [editingFile, setEditingFile] = useState<string | null>(null);
   const [editFileName, setEditFileName] = useState('');
   
-  const { codeFiles, isLoading, createCodeFile, updateCodeFile } = useCodeFiles(projectId);
+  const { 
+    codeFiles, 
+    isLoading, 
+    createCodeFile, 
+    updateCodeFile, 
+    deleteCodeFile, 
+    duplicateCodeFile, 
+    renameCodeFile 
+  } = useCodeFiles(projectId);
 
   const handleCreateFile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,10 +66,9 @@ const EnhancedFileExplorer = ({ projectId, selectedFile, onFileSelect }: Enhance
     if (!editFileName.trim()) return;
 
     try {
-      await updateCodeFile.mutateAsync({
+      await renameCodeFile.mutateAsync({
         id: fileId,
-        file_path: editFileName,
-        updated_at: new Date().toISOString(),
+        newPath: editFileName,
       });
 
       setEditingFile(null);
@@ -73,11 +80,17 @@ const EnhancedFileExplorer = ({ projectId, selectedFile, onFileSelect }: Enhance
 
   const handleDeleteFile = async (fileId: string) => {
     try {
-      // Note: You'll need to add a delete mutation to useCodeFiles hook
-      console.log('Delete file:', fileId);
-      // For now, we'll just log it since delete functionality isn't implemented yet
+      await deleteCodeFile.mutateAsync(fileId);
     } catch (error) {
       console.error('Failed to delete file:', error);
+    }
+  };
+
+  const handleDuplicateFile = async (file: CodeFile) => {
+    try {
+      await duplicateCodeFile.mutateAsync(file);
+    } catch (error) {
+      console.error('Failed to duplicate file:', error);
     }
   };
 
@@ -135,11 +148,71 @@ const EnhancedFileExplorer = ({ projectId, selectedFile, onFileSelect }: Enhance
 
   const { folders, rootFiles } = organizeFiles(codeFiles || []);
 
+  const FileActions = ({ file }: { file: CodeFile }) => (
+    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleDuplicateFile(file);
+        }}
+        className="h-6 w-6 p-0"
+        title="Duplicate file"
+      >
+        <Copy className="h-3 w-3" />
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditingFile(file.id);
+          setEditFileName(file.file_path);
+        }}
+        className="h-6 w-6 p-0"
+        title="Rename file"
+      >
+        <Edit2 className="h-3 w-3" />
+      </Button>
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(e) => e.stopPropagation()}
+            className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+            title="Delete file"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete File</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{file.file_path}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => handleDeleteFile(file.id)}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-medium text-gray-900">Files</h3>
+          <h3 className="font-medium text-gray-900">Files ({codeFiles?.length || 0})</h3>
           <div className="flex gap-1">
             <CodeGeneratorDialog 
               projectId={projectId}
@@ -209,49 +282,7 @@ const EnhancedFileExplorer = ({ projectId, selectedFile, onFileSelect }: Enhance
                     {getFileIcon(file.file_path)}
                     <span className="truncate">{file.file_path}</span>
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingFile(file.id);
-                        setEditFileName(file.file_path);
-                      }}
-                      className="h-6 w-6 p-0"
-                    >
-                      <Edit2 className="h-3 w-3" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => e.stopPropagation()}
-                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete File</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to delete "{file.file_path}"? This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDeleteFile(file.id)}
-                            className="bg-red-500 hover:bg-red-600"
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
+                  <FileActions file={file} />
                 </div>
               )}
             </div>
@@ -263,6 +294,7 @@ const EnhancedFileExplorer = ({ projectId, selectedFile, onFileSelect }: Enhance
               <div className="flex items-center gap-2 p-2 text-sm font-medium text-gray-700">
                 <FolderOpen className="h-4 w-4 text-blue-500" />
                 <span>{folderName}</span>
+                <span className="text-xs text-gray-500">({files.length})</span>
               </div>
               <div className="ml-4">
                 {files.map((file) => (
@@ -278,49 +310,7 @@ const EnhancedFileExplorer = ({ projectId, selectedFile, onFileSelect }: Enhance
                         {getFileIcon(file.file_path)}
                         <span className="truncate">{file.file_path.split('/').pop()}</span>
                       </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingFile(file.id);
-                            setEditFileName(file.file_path);
-                          }}
-                          className="h-6 w-6 p-0"
-                        >
-                          <Edit2 className="h-3 w-3" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => e.stopPropagation()}
-                              className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete File</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete "{file.file_path}"? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDeleteFile(file.id)}
-                                className="bg-red-500 hover:bg-red-600"
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
+                      <FileActions file={file} />
                     </div>
                   </div>
                 ))}
