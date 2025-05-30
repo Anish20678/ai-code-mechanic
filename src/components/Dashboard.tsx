@@ -14,8 +14,8 @@ import ProjectCard from './ProjectCard';
 import CodeEditor from './CodeEditor';
 import ErrorDisplay from './ErrorDisplay';
 import CreateProjectDialog from './CreateProjectDialog';
-import ChatInterface from './ChatInterface';
-import FileExplorer from './FileExplorer';
+import EnhancedChatInterface from './EnhancedChatInterface';
+import EnhancedFileExplorer from './EnhancedFileExplorer';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
 import { useConversations } from '@/hooks/useConversations';
@@ -109,7 +109,7 @@ const Dashboard = () => {
                   Sign Out
                 </DropdownMenuItem>
               </DropdownMenuContent>
-            </DropdownMenu>
+            </div>
           </div>
         </div>
       </header>
@@ -186,7 +186,7 @@ const Dashboard = () => {
               <div className="flex-1 flex">
                 {/* File Explorer */}
                 <div className="w-64 bg-white border-r border-gray-200">
-                  <FileExplorer
+                  <EnhancedFileExplorer
                     projectId={activeProject.id}
                     selectedFile={selectedFile}
                     onFileSelect={handleFileSelect}
@@ -232,7 +232,10 @@ const Dashboard = () => {
                     
                     <TabsContent value="chat" className="flex-1 m-0">
                       {activeConversation ? (
-                        <ChatInterface conversationId={activeConversation.id} />
+                        <EnhancedChatInterface 
+                          conversationId={activeConversation.id}
+                          projectId={activeProject.id}
+                        />
                       ) : (
                         <div className="flex-1 flex items-center justify-center">
                           <div className="text-center">
