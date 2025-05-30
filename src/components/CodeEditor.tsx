@@ -1,168 +1,69 @@
 
-import { useState } from 'react';
-import { ChevronRight, ChevronDown, File, Folder } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useState, useEffect } from 'react';
+import { File } from 'lucide-react';
+import type { Database } from '@/integrations/supabase/types';
 
-interface FileNode {
-  name: string;
-  type: 'file' | 'folder';
-  children?: FileNode[];
-  content?: string;
+type CodeFile = Database['public']['Tables']['code_files']['Row'];
+
+interface CodeEditorProps {
+  file: CodeFile;
+  onContentChange: (content: string) => void;
 }
 
-const CodeEditor = () => {
-  const [selectedFile, setSelectedFile] = useState<string>('App.tsx');
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['src', 'components']));
-
-  // Mock file structure
-  const fileTree: FileNode[] = [
-    {
-      name: 'src',
-      type: 'folder',
-      children: [
-        {
-          name: 'components',
-          type: 'folder',
-          children: [
-            { name: 'App.tsx', type: 'file' },
-            { name: 'TaskList.tsx', type: 'file' },
-            { name: 'TaskItem.tsx', type: 'file' }
-          ]
-        },
-        {
-          name: 'utils',
-          type: 'folder',
-          children: [
-            { name: 'api.ts', type: 'file' },
-            { name: 'helpers.ts', type: 'file' }
-          ]
-        },
-        { name: 'App.css', type: 'file' },
-        { name: 'index.tsx', type: 'file' }
-      ]
-    },
-    { name: 'package.json', type: 'file' },
-    { name: 'README.md', type: 'file' }
-  ];
-
-  const mockCode = `import React, { useState, useEffect } from 'react';
-import './App.css';
-
-function App() {
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
+const CodeEditor = ({ file, onContentChange }: CodeEditorProps) => {
+  const [content, setContent] = useState(file.content || '');
 
   useEffect(() => {
-    // Fetch tasks from API
-    fetchTasks();
-  }, []);
+    setContent(file.content || '');
+  }, [file.content]);
 
-  const fetchTasks = async () => {
-    try {
-      const response = await fetch('/api/tasks');
-      const data = await response.json();
-      setTasks(data);
-    } catch (error) {
-      console.error('Error fetching tasks:', error);
-    } finally {
-      setLoading(false);
-    }
+  const handleContentChange = (newContent: string) => {
+    setContent(newContent);
+    onContentChange(newContent);
   };
 
-  const addTask = (task) => {
-    setTasks([...tasks, { ...task, id: Date.now() }]);
+  const getFileExtension = (filePath: string) => {
+    return filePath.split('.').pop() || '';
   };
 
-  if (loading) {
-    return <div>Loading...</div>;
-  }
+  const getLanguageFromExtension = (extension: string) => {
+    const languageMap: { [key: string]: string } = {
+      'js': 'javascript',
+      'jsx': 'javascript',
+      'ts': 'typescript',
+      'tsx': 'typescript',
+      'css': 'css',
+      'html': 'html',
+      'json': 'json',
+      'md': 'markdown',
+      'py': 'python',
+    };
+    return languageMap[extension] || 'text';
+  };
+
+  const extension = getFileExtension(file.file_path);
+  const language = getLanguageFromExtension(extension);
 
   return (
-    <div className="App">
-      <h1>Task Management</h1>
-      <TaskList tasks={tasks} />
-    </div>
-  );
-}
-
-export default App;`;
-
-  const toggleFolder = (folderName: string) => {
-    const newExpanded = new Set(expandedFolders);
-    if (newExpanded.has(folderName)) {
-      newExpanded.delete(folderName);
-    } else {
-      newExpanded.add(folderName);
-    }
-    setExpandedFolders(newExpanded);
-  };
-
-  const renderFileTree = (nodes: FileNode[], depth = 0) => {
-    return nodes.map((node) => (
-      <div key={node.name}>
-        <div
-          className={cn(
-            "flex items-center py-1 px-2 text-sm cursor-pointer hover:bg-gray-100 rounded",
-            selectedFile === node.name && node.type === 'file' && "bg-blue-50 text-blue-600"
-          )}
-          style={{ paddingLeft: `${depth * 12 + 8}px` }}
-          onClick={() => {
-            if (node.type === 'folder') {
-              toggleFolder(node.name);
-            } else {
-              setSelectedFile(node.name);
-            }
-          }}
-        >
-          {node.type === 'folder' ? (
-            <>
-              {expandedFolders.has(node.name) ? (
-                <ChevronDown className="h-4 w-4 mr-1" />
-              ) : (
-                <ChevronRight className="h-4 w-4 mr-1" />
-              )}
-              <Folder className="h-4 w-4 mr-2 text-blue-500" />
-            </>
-          ) : (
-            <File className="h-4 w-4 mr-2 ml-5 text-gray-500" />
-          )}
-          <span>{node.name}</span>
-        </div>
-        {node.type === 'folder' && expandedFolders.has(node.name) && node.children && (
-          <div>
-            {renderFileTree(node.children, depth + 1)}
-          </div>
-        )}
-      </div>
-    ));
-  };
-
-  return (
-    <div className="flex h-full">
-      {/* File Explorer */}
-      <div className="w-64 bg-gray-50 border-r border-gray-200 p-4">
-        <h4 className="text-sm font-medium text-gray-900 mb-3">Files</h4>
-        <div className="space-y-1">
-          {renderFileTree(fileTree)}
+    <div className="flex flex-col h-full">
+      {/* Tab */}
+      <div className="border-b border-gray-200 px-4 py-2 bg-white">
+        <div className="flex items-center space-x-2">
+          <File className="h-4 w-4 text-gray-500" />
+          <span className="text-sm font-medium text-gray-900">{file.file_path}</span>
+          <span className="text-xs text-gray-500">({language})</span>
         </div>
       </div>
 
-      {/* Code Editor */}
+      {/* Code Content */}
       <div className="flex-1 bg-white">
-        {/* Tab */}
-        <div className="border-b border-gray-200 px-4 py-2">
-          <div className="flex items-center space-x-2">
-            <File className="h-4 w-4 text-gray-500" />
-            <span className="text-sm font-medium text-gray-900">{selectedFile}</span>
-          </div>
-        </div>
-
-        {/* Code Content */}
-        <div className="p-4">
-          <pre className="text-sm leading-relaxed text-gray-800 font-mono bg-gray-50 p-4 rounded-lg overflow-auto">
-            <code>{mockCode}</code>
-          </pre>
-        </div>
+        <textarea
+          value={content}
+          onChange={(e) => handleContentChange(e.target.value)}
+          className="w-full h-full p-4 font-mono text-sm leading-relaxed text-gray-800 bg-gray-50 border-none resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Start coding..."
+          spellCheck={false}
+        />
       </div>
     </div>
   );
