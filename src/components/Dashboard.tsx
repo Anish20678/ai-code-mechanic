@@ -109,7 +109,7 @@ const Dashboard = () => {
                   Sign Out
                 </DropdownMenuItem>
               </DropdownMenuContent>
-            </div>
+            </DropdownMenu>
           </div>
         </div>
       </header>
