@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Plus, Code, Play, LogOut, User, MessageSquare, FileText } from 'lucide-react';
+import { Plus, Code, Play, LogOut, User, MessageSquare, FileText, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -16,6 +16,7 @@ import ErrorDisplay from './ErrorDisplay';
 import CreateProjectDialog from './CreateProjectDialog';
 import EnhancedChatInterface from './EnhancedChatInterface';
 import EnhancedFileExplorer from './EnhancedFileExplorer';
+import AutonomousAgentPanel from './AutonomousAgentPanel';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
 import { useConversations } from '@/hooks/useConversations';
