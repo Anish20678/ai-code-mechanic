@@ -161,7 +161,8 @@ const ProjectWorkspace = ({ project: propProject, onBack }: ProjectWorkspaceProp
                 <TabsContent value="execution" className="flex-1 overflow-hidden">
                   {currentConversationId && (
                     <ExecutionTracker
-                      sessionId={currentConversationId}
+                      projectId={projectId!}
+                      activeSessionId={currentConversationId}
                     />
                   )}
                 </TabsContent>
