@@ -34,7 +34,7 @@ export const useUnifiedAIAssistant = () => {
 
       if (userMessageError) {
         console.error('Error storing user message:', userMessageError);
-        throw userMessageError;
+        throw new Error(`Failed to store message: ${userMessageError.message}`);
       }
 
       const defaultModel = getDefaultModel();
@@ -57,7 +57,10 @@ export const useUnifiedAIAssistant = () => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('AI function error:', error);
+        throw new Error(`AI service error: ${error.message || 'Unknown error'}`);
+      }
 
       // Show success toast for execute mode
       if (!isChatMode) {
@@ -70,12 +73,16 @@ export const useUnifiedAIAssistant = () => {
       return data.response;
     } catch (error: any) {
       console.error('AI Assistant error:', error);
+      
+      const errorMessage = error.message || "Failed to get AI response";
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to get AI response",
+        description: errorMessage,
         variant: "destructive",
       });
-      throw error;
+      
+      throw new Error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -106,6 +113,7 @@ export const useUnifiedAIAssistant = () => {
 
       if (userMessageError) {
         console.error('Error storing user message:', userMessageError);
+        throw new Error(`Failed to store message: ${userMessageError.message}`);
       }
 
       const { data, error } = await supabase.functions.invoke('ai-file-executor', {
@@ -119,7 +127,10 @@ export const useUnifiedAIAssistant = () => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('File executor error:', error);
+        throw new Error(`File operation error: ${error.message || 'Unknown error'}`);
+      }
 
       toast({
         title: "Files Updated",
@@ -133,12 +144,16 @@ export const useUnifiedAIAssistant = () => {
       };
     } catch (error: any) {
       console.error('File executor error:', error);
+      
+      const errorMessage = error.message || "Failed to execute file operations";
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to execute file operations",
+        description: errorMessage,
         variant: "destructive",
       });
-      throw error;
+      
+      throw new Error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -168,6 +183,7 @@ export const useUnifiedAIAssistant = () => {
 
       if (userMessageError) {
         console.error('Error storing user message:', userMessageError);
+        throw new Error(`Failed to store message: ${userMessageError.message}`);
       }
 
       const { data, error } = await supabase.functions.invoke('ai-file-executor', {
@@ -181,16 +197,24 @@ export const useUnifiedAIAssistant = () => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Analysis error:', error);
+        throw new Error(`Code analysis error: ${error.message || 'Unknown error'}`);
+      }
 
       return data.response;
     } catch (error: any) {
+      console.error('Code analysis error:', error);
+      
+      const errorMessage = error.message || "Failed to analyze code";
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to analyze code",
+        description: errorMessage,
         variant: "destructive",
       });
-      throw error;
+      
+      throw new Error(errorMessage);
     } finally {
       setIsLoading(false);
     }

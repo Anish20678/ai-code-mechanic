@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Code, Loader2, Settings, MessageSquare, Zap, ChevronDown, Play, FileText, TestTube, Wrench, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,8 +13,10 @@ import { useUnifiedAIAssistant } from '@/hooks/useUnifiedAIAssistant';
 import { useAdvancedAI } from '@/hooks/useAdvancedAI';
 import { useCodeFiles } from '@/hooks/useCodeFiles';
 import { useExecutionSessions } from '@/hooks/useExecutionSessions';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 import ExecutionTracker from '@/components/ExecutionTracker';
 import SystemPromptManager from '@/components/SystemPromptManager';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { formatDistanceToNow } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -39,6 +40,7 @@ const UnifiedAIAssistant = ({ conversationId, projectId }: UnifiedAIAssistantPro
   const { executeCode, analyzeCode, optimizeCode, generateTests, refactorCode, isLoading: advancedLoading } = useAdvancedAI();
   const { codeFiles } = useCodeFiles(projectId);
   const { createSession } = useExecutionSessions(projectId);
+  const { handleError, handleAsyncOperation } = useErrorHandler();
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +49,7 @@ const UnifiedAIAssistant = ({ conversationId, projectId }: UnifiedAIAssistantPro
     const userMessage = inputMessage.trim();
     setInputMessage('');
 
-    try {
+    await handleAsyncOperation(async () => {
       // Create user message
       await createMessage.mutateAsync({
         conversation_id: conversationId,
@@ -57,13 +59,11 @@ const UnifiedAIAssistant = ({ conversationId, projectId }: UnifiedAIAssistantPro
 
       // Send to unified AI assistant with mode context
       await sendUnifiedMessage(userMessage, conversationId, codeFiles, chatMode);
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    }
+    }, 'Failed to send message', 'UnifiedAIAssistant.handleSendMessage');
   };
 
   const handleExecuteCode = async () => {
-    try {
+    await handleAsyncOperation(async () => {
       // Create execution session
       const session = await createSession.mutateAsync({
         conversation_id: conversationId,
@@ -85,9 +85,7 @@ const UnifiedAIAssistant = ({ conversationId, projectId }: UnifiedAIAssistantPro
 
       // Execute using the advanced AI
       await executeCode('Execute the discussed plan', projectId, session.id, conversationId, codeFiles);
-    } catch (error) {
-      console.error('Failed to execute code:', error);
-    }
+    }, 'Failed to execute code', 'UnifiedAIAssistant.handleExecuteCode');
   };
 
   const handleQuickAction = async (action: string) => {
@@ -96,7 +94,7 @@ const UnifiedAIAssistant = ({ conversationId, projectId }: UnifiedAIAssistantPro
     const userMessage = `${action} for the current codebase`;
     setInputMessage('');
 
-    try {
+    await handleAsyncOperation(async () => {
       await createMessage.mutateAsync({
         conversation_id: conversationId,
         role: 'user',
@@ -108,19 +106,15 @@ const UnifiedAIAssistant = ({ conversationId, projectId }: UnifiedAIAssistantPro
           await analyzeCode(userMessage, conversationId, codeFiles);
           break;
         case 'Generate tests':
-          // For now, analyze and suggest test generation
           await sendUnifiedMessage(`Generate comprehensive tests for the current codebase`, conversationId, codeFiles, false);
           break;
         case 'Optimize performance':
-          // Analyze for optimization opportunities
           await sendUnifiedMessage(`Analyze and optimize the performance of the current codebase`, conversationId, codeFiles, false);
           break;
         default:
           await sendUnifiedMessage(userMessage, conversationId, codeFiles, chatMode);
       }
-    } catch (error) {
-      console.error('Failed to execute quick action:', error);
-    }
+    }, `Failed to execute ${action}`, 'UnifiedAIAssistant.handleQuickAction');
   };
 
   // Auto-scroll to bottom when new messages arrive
@@ -232,236 +226,244 @@ const UnifiedAIAssistant = ({ conversationId, projectId }: UnifiedAIAssistantPro
   }
 
   return (
-    <div className="flex h-full">
-      {/* Main Chat Area */}
-      <div className="flex flex-col flex-1">
-        {/* Header with Chat Mode Toggle */}
-        <div className="border-b border-gray-200 p-4 bg-white">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Code className="h-5 w-5 text-gray-600" />
-              <h3 className="font-medium text-gray-900">AI Assistant</h3>
-              <span className="text-xs text-gray-500">
-                ({codeFiles?.length || 0} files in context)
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <Brain className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>System Prompt Management</DialogTitle>
-                  </DialogHeader>
-                  <SystemPromptManager />
-                </DialogContent>
-              </Dialog>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowExecutionTracker(!showExecutionTracker)}
-              >
-                <Zap className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowSettings(!showSettings)}
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                {chatMode ? (
-                  <MessageSquare className="h-4 w-4 text-blue-500" />
-                ) : (
-                  <Zap className="h-4 w-4 text-orange-500" />
-                )}
-                <Label htmlFor="chat-mode" className="text-sm font-medium">
-                  {chatMode ? 'Chat Mode' : 'Execute Mode'}
-                </Label>
-              </div>
-              <Switch
-                id="chat-mode"
-                checked={chatMode}
-                onCheckedChange={setChatMode}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={handleExecuteCode}
-                disabled={aiLoading || advancedLoading || createSession.isPending}
-                className="bg-orange-600 hover:bg-orange-700 text-white"
-                size="sm"
-              >
-                <Play className="h-4 w-4 mr-2" />
-                Execute Code
-              </Button>
-              <p className="text-xs text-gray-500">
-                {chatMode ? 'Provides suggestions and guidance' : 'Executes commands immediately'}
-              </p>
-            </div>
-          </div>
-
-          <Collapsible open={showSettings} onOpenChange={setShowSettings}>
-            <CollapsibleContent className="mt-3 pt-3 border-t border-gray-100">
-              <div className="space-y-2">
-                <p className="text-xs text-gray-600 font-medium">Mode Explanation:</p>
-                <div className="text-xs text-gray-500 space-y-1">
-                  <p><strong>Chat Mode ON:</strong> AI provides suggestions, explanations, and guidance. Ask questions and get advice.</p>
-                  <p><strong>Chat Mode OFF:</strong> AI executes commands directly. Make changes to your code immediately.</p>
-                </div>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        </div>
-
-        {/* Messages */}
-        <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-          {messages && messages.length > 0 ? (
-            messages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
-            ))
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                {chatMode ? (
-                  <Bot className="h-12 w-12 text-blue-400 mx-auto mb-4" />
-                ) : (
-                  <Zap className="h-12 w-12 text-orange-400 mx-auto mb-4" />
-                )}
-                <h4 className="font-medium text-gray-900 mb-2">
-                  {chatMode ? 'AI Coding Assistant' : 'AI Code Executor'}
-                </h4>
-                <p className="text-gray-500 text-sm mb-4">
-                  {chatMode 
-                    ? 'I can help you understand code, debug issues, and provide guidance.'
-                    : 'I can execute commands and make changes to your code directly.'
-                  }
-                </p>
-                <p className="text-xs text-gray-400">
-                  I have access to your project files for better context.
-                </p>
-              </div>
-            </div>
-          )}
-          
-          {/* Loading indicator for AI response */}
-          {(aiLoading || advancedLoading) && (
-            <div className="flex justify-start mb-4">
-              <div className="flex items-start gap-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  chatMode ? 'bg-blue-500' : 'bg-orange-500'
-                }`}>
-                  {chatMode ? (
-                    <Bot className="h-4 w-4 text-white" />
-                  ) : (
-                    <Zap className="h-4 w-4 text-white" />
-                  )}
-                </div>
-                <Card className="bg-white">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2 text-gray-500">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm">
-                        {chatMode ? 'AI is thinking...' : 'AI is executing...'}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          )}
-        </ScrollArea>
-
-        {/* Quick Actions */}
-        {codeFiles && codeFiles.length > 0 && (
-          <div className="border-t border-gray-100 p-4 bg-gray-50">
-            <p className="text-xs font-medium text-gray-600 mb-2">Quick Actions:</p>
-            <div className="flex flex-wrap gap-2">
-              {getQuickActions().map((action, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-8"
-                  onClick={() => handleQuickAction(action.label)}
-                  disabled={aiLoading || advancedLoading}
-                >
-                  <action.icon className="h-3 w-3 mr-1" />
-                  {action.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Suggestions */}
-        {(!messages || messages.length === 0) && (
-          <div className="border-t border-gray-100 p-4 bg-gray-50">
-            <p className="text-xs font-medium text-gray-600 mb-2">
-              {chatMode ? 'Chat Suggestions:' : 'Execute Suggestions:'}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {getSuggestions().map((suggestion, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-8"
-                  onClick={() => setInputMessage(suggestion)}
-                >
-                  {suggestion}
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Input */}
-        <div className="border-t border-gray-200 p-4 bg-white">
-          <form onSubmit={handleSendMessage} className="flex gap-2">
-            <Input
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              placeholder={chatMode 
-                ? "Ask me to help with your code..." 
-                : "Tell me what to implement..."
-              }
-              className="flex-1"
-              disabled={aiLoading || advancedLoading}
-            />
-            <Button 
-              type="submit" 
-              disabled={!inputMessage.trim() || aiLoading || advancedLoading}
-              className={chatMode ? "bg-blue-600 hover:bg-blue-700" : "bg-orange-600 hover:bg-orange-700"}
-            >
-              {aiLoading || advancedLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : chatMode ? (
-                <Send className="h-4 w-4" />
-              ) : (
-                <Zap className="h-4 w-4" />
-              )}
-            </Button>
-          </form>
-        </div>
+    <ErrorBoundary fallback={
+      <div className="flex items-center justify-center h-full">
+        <p className="text-red-500">Error loading AI Assistant. Please refresh the page.</p>
       </div>
+    }>
+      <div className="flex h-full">
+        {/* Main Chat Area */}
+        <div className="flex flex-col flex-1">
+          {/* Header with Chat Mode Toggle */}
+          <div className="border-b border-gray-200 p-4 bg-white">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Code className="h-5 w-5 text-gray-600" />
+                <h3 className="font-medium text-gray-900">AI Assistant</h3>
+                <span className="text-xs text-gray-500">
+                  ({codeFiles?.length || 0} files in context)
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <Brain className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>System Prompt Management</DialogTitle>
+                    </DialogHeader>
+                    <SystemPromptManager />
+                  </DialogContent>
+                </Dialog>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowExecutionTracker(!showExecutionTracker)}
+                >
+                  <Zap className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSettings(!showSettings)}
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  {chatMode ? (
+                    <MessageSquare className="h-4 w-4 text-blue-500" />
+                  ) : (
+                    <Zap className="h-4 w-4 text-orange-500" />
+                  )}
+                  <Label htmlFor="chat-mode" className="text-sm font-medium">
+                    {chatMode ? 'Chat Mode' : 'Execute Mode'}
+                  </Label>
+                </div>
+                <Switch
+                  id="chat-mode"
+                  checked={chatMode}
+                  onCheckedChange={setChatMode}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={handleExecuteCode}
+                  disabled={aiLoading || advancedLoading || createSession.isPending}
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                  size="sm"
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  Execute Code
+                </Button>
+                <p className="text-xs text-gray-500">
+                  {chatMode ? 'Provides suggestions and guidance' : 'Executes commands immediately'}
+                </p>
+              </div>
+            </div>
 
-      {/* Execution Tracker Panel */}
-      {showExecutionTracker && (
-        <div className="w-80 border-l border-gray-200 bg-gray-50 p-4">
-          <ExecutionTracker projectId={projectId} activeSessionId={activeExecutionId} />
+            <Collapsible open={showSettings} onOpenChange={setShowSettings}>
+              <CollapsibleContent className="mt-3 pt-3 border-t border-gray-100">
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-600 font-medium">Mode Explanation:</p>
+                  <div className="text-xs text-gray-500 space-y-1">
+                    <p><strong>Chat Mode ON:</strong> AI provides suggestions, explanations, and guidance. Ask questions and get advice.</p>
+                    <p><strong>Chat Mode OFF:</strong> AI executes commands directly. Make changes to your code immediately.</p>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+
+          {/* Messages */}
+          <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
+            {messages && messages.length > 0 ? (
+              messages.map((message) => (
+                <MessageBubble key={message.id} message={message} />
+              ))
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  {chatMode ? (
+                    <Bot className="h-12 w-12 text-blue-400 mx-auto mb-4" />
+                  ) : (
+                    <Zap className="h-12 w-12 text-orange-400 mx-auto mb-4" />
+                  )}
+                  <h4 className="font-medium text-gray-900 mb-2">
+                    {chatMode ? 'AI Coding Assistant' : 'AI Code Executor'}
+                  </h4>
+                  <p className="text-gray-500 text-sm mb-4">
+                    {chatMode 
+                      ? 'I can help you understand code, debug issues, and provide guidance.'
+                      : 'I can execute commands and make changes to your code directly.'
+                    }
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    I have access to your project files for better context.
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* Loading indicator for AI response */}
+            {(aiLoading || advancedLoading) && (
+              <div className="flex justify-start mb-4">
+                <div className="flex items-start gap-2">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    chatMode ? 'bg-blue-500' : 'bg-orange-500'
+                  }`}>
+                    {chatMode ? (
+                      <Bot className="h-4 w-4 text-white" />
+                    ) : (
+                      <Zap className="h-4 w-4 text-white" />
+                    )}
+                  </div>
+                  <Card className="bg-white">
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">
+                          {chatMode ? 'AI is thinking...' : 'AI is executing...'}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
+          </ScrollArea>
+
+          {/* Quick Actions */}
+          {codeFiles && codeFiles.length > 0 && (
+            <div className="border-t border-gray-100 p-4 bg-gray-50">
+              <p className="text-xs font-medium text-gray-600 mb-2">Quick Actions:</p>
+              <div className="flex flex-wrap gap-2">
+                {getQuickActions().map((action, index) => (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => handleQuickAction(action.label)}
+                    disabled={aiLoading || advancedLoading}
+                  >
+                    <action.icon className="h-3 w-3 mr-1" />
+                    {action.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Suggestions */}
+          {(!messages || messages.length === 0) && (
+            <div className="border-t border-gray-100 p-4 bg-gray-50">
+              <p className="text-xs font-medium text-gray-600 mb-2">
+                {chatMode ? 'Chat Suggestions:' : 'Execute Suggestions:'}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {getSuggestions().map((suggestion, index) => (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => setInputMessage(suggestion)}
+                  >
+                    {suggestion}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Input */}
+          <div className="border-t border-gray-200 p-4 bg-white">
+            <form onSubmit={handleSendMessage} className="flex gap-2">
+              <Input
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                placeholder={chatMode 
+                  ? "Ask me to help with your code..." 
+                  : "Tell me what to implement..."
+                }
+                className="flex-1"
+                disabled={aiLoading || advancedLoading}
+              />
+              <Button 
+                type="submit" 
+                disabled={!inputMessage.trim() || aiLoading || advancedLoading}
+                className={chatMode ? "bg-blue-600 hover:bg-blue-700" : "bg-orange-600 hover:bg-orange-700"}
+              >
+                {aiLoading || advancedLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : chatMode ? (
+                  <Send className="h-4 w-4" />
+                ) : (
+                  <Zap className="h-4 w-4" />
+                )}
+              </Button>
+            </form>
+          </div>
         </div>
-      )}
-    </div>
+
+        {/* Execution Tracker Panel */}
+        {showExecutionTracker && (
+          <div className="w-80 border-l border-gray-200 bg-gray-50 p-4">
+            <ErrorBoundary fallback={<p className="text-red-500">Error loading execution tracker</p>}>
+              <ExecutionTracker projectId={projectId} activeSessionId={activeExecutionId} />
+            </ErrorBoundary>
+          </div>
+        )}
+      </div>
+    </ErrorBoundary>
   );
 };
 
