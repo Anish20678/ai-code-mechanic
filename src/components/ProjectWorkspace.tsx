@@ -99,8 +99,8 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
           {/* Left Panel - AI Assistant with File Explorer Toggle */}
           <ResizablePanel defaultSize={30} minSize={25} maxSize={40}>
             <div className="h-full bg-white border-r border-gray-200 flex flex-col">
-              {/* Toggle for File Explorer */}
-              <div className="border-b border-gray-200 p-4">
+              {/* AI Assistant Panel Header */}
+              <div className="border-b border-gray-200 p-3 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Bot className="h-5 w-5 text-blue-500" />
@@ -116,6 +116,7 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
                         checked={showFileExplorer}
                         onCheckedChange={setShowFileExplorer}
                         id="file-explorer-toggle"
+                        size="sm"
                       />
                     </div>
                   </div>
@@ -129,7 +130,7 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
                   onFileSelect={handleFileSelect}
                 />
               ) : (
-                <div className="flex-1">
+                <div className="flex-1 flex flex-col min-h-0">
                   {activeConversation ? (
                     <SimplifiedAIAssistant 
                       conversationId={activeConversation.id}

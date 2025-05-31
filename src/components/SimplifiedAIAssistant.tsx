@@ -1,7 +1,8 @@
 
 import { useState, useRef, useEffect } from 'react';
-import { Bot, User, Loader2, Lightbulb, MessageSquare, Zap } from 'lucide-react';
+import { Bot, User, Loader2, Lightbulb, MessageSquare, Zap, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { useMessages } from '@/hooks/useMessages';
@@ -20,6 +21,7 @@ interface SimplifiedAIAssistantProps {
 
 const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: SimplifiedAIAssistantProps) => {
   const [executeMode, setExecuteMode] = useState(true); // Default to execute mode
+  const [inputValue, setInputValue] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   const { messages, isLoading } = useMessages(conversationId);
@@ -32,6 +34,27 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
       await sendUnifiedMessage(command, conversationId, codeFiles, !executeMode);
     } catch (error) {
       console.error('Failed to send command:', error);
+    }
+  };
+
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!inputValue.trim() || aiLoading) return;
+
+    const message = inputValue.trim();
+    setInputValue('');
+
+    try {
+      await sendUnifiedMessage(message, conversationId, codeFiles, !executeMode);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
@@ -118,8 +141,8 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
 
   return (
     <div className="flex flex-col h-full">
-      {/* Simple Header with Bulb Icon */}
-      <div className="border-b border-gray-200 p-4 bg-white">
+      {/* Simple Header with Mode Toggle */}
+      <div className="border-b border-gray-200 p-4 bg-white flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {executeMode ? (
@@ -169,7 +192,7 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
                 }
               </p>
               <p className="text-xs text-gray-400">
-                Choose a quick command below to get started.
+                Choose a quick command below or type your message.
               </p>
             </div>
           </div>
@@ -200,27 +223,53 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
         )}
       </ScrollArea>
 
-      {/* Quick Commands */}
-      <div className="border-t border-gray-200 p-4 bg-white">
-        <p className="text-xs font-medium text-gray-600 mb-3">Quick Commands:</p>
-        <div className="grid grid-cols-1 gap-2">
-          {quickCommands.map((command, index) => (
-            <Button
-              key={index}
-              variant="outline"
-              size="sm"
-              className="text-xs h-8 justify-start"
-              onClick={() => handleQuickCommand(command)}
+      {/* Chat Input Area */}
+      <div className="border-t border-gray-200 p-4 bg-white flex-shrink-0">
+        <form onSubmit={handleSendMessage} className="space-y-3">
+          <div className="flex gap-2">
+            <Input
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder={executeMode ? "Describe what you want to build or fix..." : "Ask me anything about your code..."}
               disabled={aiLoading}
+              className="flex-1"
+            />
+            <Button 
+              type="submit" 
+              disabled={!inputValue.trim() || aiLoading}
+              size="sm"
+              className="px-3"
             >
-              {executeMode ? (
-                <Zap className="h-3 w-3 mr-2 text-orange-500" />
-              ) : (
-                <MessageSquare className="h-3 w-3 mr-2 text-blue-500" />
-              )}
-              {command}
+              <Send className="h-4 w-4" />
             </Button>
-          ))}
+          </div>
+        </form>
+      </div>
+
+      {/* Quick Commands - Collapsible */}
+      <div className="border-t border-gray-200 bg-gray-50 flex-shrink-0">
+        <div className="p-3">
+          <p className="text-xs font-medium text-gray-600 mb-2">Quick Commands:</p>
+          <div className="grid grid-cols-1 gap-1">
+            {quickCommands.slice(0, 3).map((command, index) => (
+              <Button
+                key={index}
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7 justify-start text-gray-600 hover:text-gray-900"
+                onClick={() => handleQuickCommand(command)}
+                disabled={aiLoading}
+              >
+                {executeMode ? (
+                  <Zap className="h-3 w-3 mr-2 text-orange-500" />
+                ) : (
+                  <MessageSquare className="h-3 w-3 mr-2 text-blue-500" />
+                )}
+                {command}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
