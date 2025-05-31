@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { FileText, MessageSquare, Bot, Rocket, Settings, Monitor, Play, ArrowLeft } from 'lucide-react';
+import { FileText, MessageSquare, Bot, Rocket, Settings, Monitor, Play, ArrowLeft, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import EnvironmentVariables from './EnvironmentVariables';
 import CodeEditor from './CodeEditor';
 import ErrorDisplay from './ErrorDisplay';
 import LivePreview from './LivePreview';
+import SupabaseIntegrationPanel from './SupabaseIntegrationPanel';
 import { useConversations } from '@/hooks/useConversations';
 import { useCodeFiles } from '@/hooks/useCodeFiles';
 import { useBuildSystem } from '@/hooks/useBuildSystem';
@@ -187,7 +188,7 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
             <div className="h-full flex flex-col">
               <Tabs defaultValue="editor" className="flex-1 flex flex-col h-full">
                 <div className="bg-white border-b border-gray-200 px-4 py-2 flex-shrink-0">
-                  <TabsList className="grid w-fit grid-cols-3">
+                  <TabsList className="grid w-fit grid-cols-4">
                     <TabsTrigger value="editor" className="flex items-center gap-2">
                       <FileText className="h-4 w-4" />
                       Code Editor
@@ -199,6 +200,10 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
                     <TabsTrigger value="deploy" className="flex items-center gap-2">
                       <Rocket className="h-4 w-4" />
                       Deploy
+                    </TabsTrigger>
+                    <TabsTrigger value="supabase" className="flex items-center gap-2">
+                      <Database className="h-4 w-4" />
+                      Supabase
                     </TabsTrigger>
                   </TabsList>
                 </div>
@@ -296,6 +301,12 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
                         </CardContent>
                       </Card>
                     </div>
+                  </ScrollArea>
+                </TabsContent>
+
+                <TabsContent value="supabase" className="flex-1 m-0 overflow-hidden">
+                  <ScrollArea className="h-full">
+                    <SupabaseIntegrationPanel projectId={project.id} />
                   </ScrollArea>
                 </TabsContent>
               </Tabs>
