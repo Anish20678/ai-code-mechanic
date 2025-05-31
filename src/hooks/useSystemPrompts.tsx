@@ -7,6 +7,7 @@ import type { Database } from '@/integrations/supabase/types';
 type SystemPrompt = Database['public']['Tables']['system_prompts']['Row'];
 type SystemPromptInsert = Database['public']['Tables']['system_prompts']['Insert'];
 type SystemPromptUpdate = Database['public']['Tables']['system_prompts']['Update'];
+type PromptCategory = Database['public']['Enums']['prompt_category'];
 
 export const useSystemPrompts = () => {
   const { toast } = useToast();
@@ -106,7 +107,7 @@ export const useSystemPrompts = () => {
   });
 
   const activatePrompt = useMutation({
-    mutationFn: async ({ id, category }: { id: string; category: string }) => {
+    mutationFn: async ({ id, category }: { id: string; category: PromptCategory }) => {
       // First deactivate all prompts in this category
       await supabase
         .from('system_prompts')
