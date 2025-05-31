@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { FileText, Bot, Rocket, Monitor, DatabaseIcon, FolderOpen, Settings as SettingsIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -116,7 +115,6 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
                         checked={showFileExplorer}
                         onCheckedChange={setShowFileExplorer}
                         id="file-explorer-toggle"
-                        size="sm"
                       />
                     </div>
                   </div>

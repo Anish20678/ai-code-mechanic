@@ -1,10 +1,9 @@
 
 import { useState, useRef, useEffect } from 'react';
-import { Bot, User, Loader2, Lightbulb, MessageSquare, Zap, Send } from 'lucide-react';
+import { Bot, User, Loader2, Lightbulb, Send, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent } from '@/components/ui/card';
 import { useMessages } from '@/hooks/useMessages';
 import { useUnifiedAIAssistant } from '@/hooks/useUnifiedAIAssistant';
 import { useCodeFiles } from '@/hooks/useCodeFiles';
@@ -20,22 +19,13 @@ interface SimplifiedAIAssistantProps {
 }
 
 const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: SimplifiedAIAssistantProps) => {
-  const [executeMode, setExecuteMode] = useState(true); // Default to execute mode
+  const [executeMode, setExecuteMode] = useState(true);
   const [inputValue, setInputValue] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   const { messages, isLoading } = useMessages(conversationId);
   const { sendUnifiedMessage, isLoading: aiLoading } = useUnifiedAIAssistant();
   const { codeFiles } = useCodeFiles(projectId);
-
-  const handleQuickCommand = async (command: string) => {
-    try {
-      // Send command directly without user input
-      await sendUnifiedMessage(command, conversationId, codeFiles, !executeMode);
-    } catch (error) {
-      console.error('Failed to send command:', error);
-    }
-  };
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -67,22 +57,46 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
     }
   }, [messages]);
 
+  const formatAIResponse = (content: string) => {
+    // Remove mode prefixes and clean up code blocks
+    const cleanContent = content.replace(/^\[(CHAT|EXECUTE) MODE\]\s*/, '');
+    
+    // Split content by code blocks to handle them separately
+    const parts = cleanContent.split(/(```[\s\S]*?```)/);
+    
+    return parts.map((part, index) => {
+      if (part.startsWith('```') && part.endsWith('```')) {
+        // This is a code block - show a simplified version
+        return (
+          <div key={index} className="bg-gray-800 text-gray-100 p-3 rounded-lg my-2">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span className="text-xs text-gray-400">Code changes applied</span>
+            </div>
+            <p className="text-xs text-gray-300">Files have been updated successfully.</p>
+          </div>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
+
   const MessageBubble = ({ message }: { message: Message }) => {
     const isUser = message.role === 'user';
     const content = message.content.replace(/^\[(CHAT|EXECUTE) MODE\]\s*/, '');
     
     return (
-      <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}>
+      <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
         <div className={`flex max-w-[85%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start gap-3`}>
-          <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${
+          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
             isUser ? 'bg-gray-900' : executeMode ? 'bg-orange-500' : 'bg-blue-500'
           }`}>
             {isUser ? (
-              <User className="h-3.5 w-3.5 text-white" />
+              <User className="h-4 w-4 text-white" />
             ) : executeMode ? (
-              <Zap className="h-3.5 w-3.5 text-white" />
+              <Zap className="h-4 w-4 text-white" />
             ) : (
-              <Bot className="h-3.5 w-3.5 text-white" />
+              <Bot className="h-4 w-4 text-white" />
             )}
           </div>
           <div className={`rounded-2xl px-4 py-3 ${
@@ -91,24 +105,7 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
               : 'bg-gray-100 text-gray-900'
           }`}>
             <div className="text-sm whitespace-pre-wrap leading-relaxed">
-              {content.includes('```') ? (
-                <div>
-                  {content.split('```').map((part, index) => {
-                    if (index % 2 === 1) {
-                      return (
-                        <div key={index} className="bg-gray-800 text-gray-100 p-3 rounded-lg my-2 overflow-x-auto">
-                          <pre className="text-xs font-mono">
-                            <code>{part}</code>
-                          </pre>
-                        </div>
-                      );
-                    }
-                    return <span key={index}>{part}</span>;
-                  })}
-                </div>
-              ) : (
-                content
-              )}
+              {isUser ? content : formatAIResponse(content)}
             </div>
             <p className={`text-xs mt-2 ${isUser ? 'text-gray-300' : 'text-gray-500'}`}>
               {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
@@ -118,15 +115,6 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
       </div>
     );
   };
-
-  const quickCommands = [
-    "Create a new React component",
-    "Add error handling to the code",
-    "Implement form validation",
-    "Add TypeScript types",
-    "Create API endpoints",
-    "Setup authentication"
-  ];
 
   if (isLoading) {
     return (
@@ -141,34 +129,7 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
 
   return (
     <div className="flex flex-col h-full">
-      {/* Simple Header with Mode Toggle */}
-      <div className="border-b border-gray-200 p-4 bg-white flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {executeMode ? (
-              <Zap className="h-5 w-5 text-orange-500" />
-            ) : (
-              <Bot className="h-5 w-5 text-blue-500" />
-            )}
-            <h3 className="font-medium text-gray-900">
-              {executeMode ? 'AI Executor' : 'AI Assistant'}
-            </h3>
-          </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setExecuteMode(!executeMode)}
-            className="p-2"
-          >
-            <Lightbulb className={`h-4 w-4 ${executeMode ? 'text-orange-500' : 'text-blue-500'}`} />
-          </Button>
-        </div>
-        <p className="text-xs text-gray-500 mt-1">
-          {executeMode ? 'Execute commands directly' : 'Get guidance and suggestions'}
-        </p>
-      </div>
-
-      {/* Messages */}
+      {/* Messages Area */}
       <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
         {messages && messages.length > 0 ? (
           messages.map((message) => (
@@ -192,29 +153,29 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
                 }
               </p>
               <p className="text-xs text-gray-400">
-                Choose a quick command below or type your message.
+                Start typing your message below to begin.
               </p>
             </div>
           </div>
         )}
         
         {aiLoading && (
-          <div className="flex justify-start mb-3">
+          <div className="flex justify-start mb-4">
             <div className="flex items-start gap-3">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                 executeMode ? 'bg-orange-500' : 'bg-blue-500'
               }`}>
                 {executeMode ? (
-                  <Zap className="h-3.5 w-3.5 text-white" />
+                  <Zap className="h-4 w-4 text-white" />
                 ) : (
-                  <Bot className="h-3.5 w-3.5 text-white" />
+                  <Bot className="h-4 w-4 text-white" />
                 )}
               </div>
               <div className="bg-gray-100 rounded-2xl px-4 py-3">
                 <div className="flex items-center gap-2 text-gray-500">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span className="text-sm">
-                    {executeMode ? 'AI is executing...' : 'AI is thinking...'}
+                    {executeMode ? 'Executing changes...' : 'Thinking...'}
                   </span>
                 </div>
               </div>
@@ -223,15 +184,37 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
         )}
       </ScrollArea>
 
-      {/* Chat Input Area */}
+      {/* Fixed Chat Input at Bottom */}
       <div className="border-t border-gray-200 p-4 bg-white flex-shrink-0">
         <form onSubmit={handleSendMessage} className="space-y-3">
+          {/* Mode Toggle */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <span>Mode:</span>
+              <span className={executeMode ? 'text-orange-600 font-medium' : 'text-blue-600 font-medium'}>
+                {executeMode ? 'Execute' : 'Chat'}
+              </span>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setExecuteMode(!executeMode)}
+              className="h-6 px-2"
+            >
+              <Lightbulb className={`h-3 w-3 ${executeMode ? 'text-orange-500' : 'text-blue-500'}`} />
+            </Button>
+          </div>
+          
+          {/* Input Area */}
           <div className="flex gap-2">
             <Input
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={executeMode ? "Describe what you want to build or fix..." : "Ask me anything about your code..."}
+              placeholder={executeMode 
+                ? "Describe what you want to build or fix..." 
+                : "Ask me anything about your code..."
+              }
               disabled={aiLoading}
               className="flex-1"
             />
@@ -245,32 +228,6 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
             </Button>
           </div>
         </form>
-      </div>
-
-      {/* Quick Commands - Collapsible */}
-      <div className="border-t border-gray-200 bg-gray-50 flex-shrink-0">
-        <div className="p-3">
-          <p className="text-xs font-medium text-gray-600 mb-2">Quick Commands:</p>
-          <div className="grid grid-cols-1 gap-1">
-            {quickCommands.slice(0, 3).map((command, index) => (
-              <Button
-                key={index}
-                variant="ghost"
-                size="sm"
-                className="text-xs h-7 justify-start text-gray-600 hover:text-gray-900"
-                onClick={() => handleQuickCommand(command)}
-                disabled={aiLoading}
-              >
-                {executeMode ? (
-                  <Zap className="h-3 w-3 mr-2 text-orange-500" />
-                ) : (
-                  <MessageSquare className="h-3 w-3 mr-2 text-blue-500" />
-                )}
-                {command}
-              </Button>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );

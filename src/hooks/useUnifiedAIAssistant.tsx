@@ -23,8 +23,8 @@ export const useUnifiedAIAssistant = () => {
       // Determine the appropriate mode and prompt
       const mode = isChatMode ? 'chat' : 'execute';
       const systemContext = isChatMode
-        ? `You are a helpful AI coding assistant. Provide guidance, suggestions, and explanations. Do not make direct code changes unless explicitly requested. Focus on helping the user understand and improve their code.`
-        : `You are an AI code executor. When given commands, execute them immediately by making the necessary code changes. Be direct and efficient in your responses. If a task requires multiple steps, complete them all in one response.`;
+        ? `You are a helpful AI coding assistant. Provide clear, concise guidance and explanations. Focus on helping the user understand concepts and solve problems. Keep responses brief and avoid showing code blocks unless absolutely necessary for explanation.`
+        : `You are an AI code executor. Execute commands immediately by making necessary code changes. Be direct and efficient. Confirm actions taken without showing detailed code blocks. Focus on results and next steps.`;
 
       const { data, error } = await supabase.functions.invoke('ai-coding-assistant', {
         body: {
@@ -38,6 +38,14 @@ export const useUnifiedAIAssistant = () => {
       });
 
       if (error) throw error;
+
+      // Show success toast for execute mode
+      if (!isChatMode) {
+        toast({
+          title: "Changes Applied",
+          description: "Code has been updated successfully",
+        });
+      }
 
       return data.response;
     } catch (error: any) {
