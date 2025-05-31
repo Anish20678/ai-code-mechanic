@@ -17,6 +17,24 @@ export const useUnifiedAIAssistant = () => {
   ) => {
     setIsLoading(true);
     try {
+      // First, create and store the user message
+      const { error: userMessageError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          role: 'user',
+          content: message,
+          metadata: { 
+            mode: isChatMode ? 'chat' : 'execute',
+            timestamp: new Date().toISOString()
+          }
+        });
+
+      if (userMessageError) {
+        console.error('Error storing user message:', userMessageError);
+        throw userMessageError;
+      }
+
       const defaultModel = getDefaultModel();
       const modelId = defaultModel?.id || 'gpt-4o';
       
@@ -69,6 +87,24 @@ export const useUnifiedAIAssistant = () => {
   ) => {
     setIsLoading(true);
     try {
+      // Create user message for file operations
+      const { error: userMessageError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          role: 'user',
+          content: prompt,
+          metadata: { 
+            mode: 'file_execute',
+            session_id: sessionId,
+            timestamp: new Date().toISOString()
+          }
+        });
+
+      if (userMessageError) {
+        console.error('Error storing user message:', userMessageError);
+      }
+
       const { data, error } = await supabase.functions.invoke('ai-file-executor', {
         body: {
           prompt,
@@ -106,9 +142,28 @@ export const useUnifiedAIAssistant = () => {
   ) => {
     setIsLoading(true);
     try {
+      // Create user message for code analysis
+      const analysisPrompt = `[ANALYSIS MODE] Analyze this code and provide insights: ${context ? `Context: ${context}\n` : ''}Code: ${code}`;
+      
+      const { error: userMessageError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          role: 'user',
+          content: analysisPrompt,
+          metadata: { 
+            mode: 'analyze',
+            timestamp: new Date().toISOString()
+          }
+        });
+
+      if (userMessageError) {
+        console.error('Error storing user message:', userMessageError);
+      }
+
       const { data, error } = await supabase.functions.invoke('ai-file-executor', {
         body: {
-          prompt: `[ANALYSIS MODE] Analyze this code and provide insights: ${context ? `Context: ${context}\n` : ''}Code: ${code}`,
+          prompt: analysisPrompt,
           projectId: '',
           sessionId: '',
           conversationId,

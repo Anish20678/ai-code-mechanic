@@ -7,6 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMessages } from '@/hooks/useMessages';
 import { useUnifiedAIAssistant } from '@/hooks/useUnifiedAIAssistant';
 import { useCodeFiles } from '@/hooks/useCodeFiles';
+import SmartMessageBubble from '@/components/SmartMessageBubble';
+import ExecutionStatusCard from '@/components/ExecutionStatusCard';
 import { formatDistanceToNow } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -21,6 +23,7 @@ interface SimplifiedAIAssistantProps {
 const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: SimplifiedAIAssistantProps) => {
   const [executeMode, setExecuteMode] = useState(true);
   const [inputValue, setInputValue] = useState('');
+  const [isExecuting, setIsExecuting] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   const { messages, isLoading } = useMessages(conversationId);
@@ -33,11 +36,14 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
 
     const message = inputValue.trim();
     setInputValue('');
+    setIsExecuting(true);
 
     try {
       await sendUnifiedMessage(message, conversationId, codeFiles, !executeMode);
     } catch (error) {
       console.error('Failed to send message:', error);
+    } finally {
+      setIsExecuting(false);
     }
   };
 
@@ -55,66 +61,7 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
     }
-  }, [messages]);
-
-  const formatAIResponse = (content: string) => {
-    // Remove mode prefixes and clean up code blocks
-    const cleanContent = content.replace(/^\[(CHAT|EXECUTE) MODE\]\s*/, '');
-    
-    // Split content by code blocks to handle them separately
-    const parts = cleanContent.split(/(```[\s\S]*?```)/);
-    
-    return parts.map((part, index) => {
-      if (part.startsWith('```') && part.endsWith('```')) {
-        // This is a code block - show a simplified version
-        return (
-          <div key={index} className="bg-gray-800 text-gray-100 p-3 rounded-lg my-2">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-xs text-gray-400">Code changes applied</span>
-            </div>
-            <p className="text-xs text-gray-300">Files have been updated successfully.</p>
-          </div>
-        );
-      }
-      return <span key={index}>{part}</span>;
-    });
-  };
-
-  const MessageBubble = ({ message }: { message: Message }) => {
-    const isUser = message.role === 'user';
-    const content = message.content.replace(/^\[(CHAT|EXECUTE) MODE\]\s*/, '');
-    
-    return (
-      <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
-        <div className={`flex max-w-[85%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start gap-3`}>
-          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-            isUser ? 'bg-gray-900' : executeMode ? 'bg-orange-500' : 'bg-blue-500'
-          }`}>
-            {isUser ? (
-              <User className="h-4 w-4 text-white" />
-            ) : executeMode ? (
-              <Zap className="h-4 w-4 text-white" />
-            ) : (
-              <Bot className="h-4 w-4 text-white" />
-            )}
-          </div>
-          <div className={`rounded-2xl px-4 py-3 ${
-            isUser 
-              ? 'bg-gray-900 text-white' 
-              : 'bg-gray-100 text-gray-900'
-          }`}>
-            <div className="text-sm whitespace-pre-wrap leading-relaxed">
-              {isUser ? content : formatAIResponse(content)}
-            </div>
-            <p className={`text-xs mt-2 ${isUser ? 'text-gray-300' : 'text-gray-500'}`}>
-              {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  }, [messages, isExecuting]);
 
   if (isLoading) {
     return (
@@ -132,9 +79,22 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
       {/* Messages Area */}
       <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
         {messages && messages.length > 0 ? (
-          messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
-          ))
+          <>
+            {messages.map((message) => (
+              <SmartMessageBubble 
+                key={message.id} 
+                message={message}
+                mode={executeMode ? 'execute' : 'chat'}
+              />
+            ))}
+            
+            {/* Execution Status Card */}
+            <ExecutionStatusCard
+              isExecuting={isExecuting}
+              mode={executeMode ? 'execute' : 'chat'}
+              onComplete={() => setIsExecuting(false)}
+            />
+          </>
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
@@ -159,7 +119,8 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
           </div>
         )}
         
-        {aiLoading && (
+        {/* Loading indicator for AI response */}
+        {aiLoading && !isExecuting && (
           <div className="flex justify-start mb-4">
             <div className="flex items-start gap-3">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -215,12 +176,12 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
                 ? "Describe what you want to build or fix..." 
                 : "Ask me anything about your code..."
               }
-              disabled={aiLoading}
+              disabled={aiLoading || isExecuting}
               className="flex-1"
             />
             <Button 
               type="submit" 
-              disabled={!inputValue.trim() || aiLoading}
+              disabled={!inputValue.trim() || aiLoading || isExecuting}
               size="sm"
               className="px-3"
             >
