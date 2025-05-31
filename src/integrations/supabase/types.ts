@@ -9,92 +9,6 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      ai_generations: {
-        Row: {
-          created_at: string
-          error_message: string | null
-          id: string
-          input_text: string
-          input_tokens: number
-          metadata: Json
-          model_id: string
-          output_text: string | null
-          output_tokens: number
-          processing_time_ms: number | null
-          project_id: string | null
-          prompt_id: string | null
-          session_id: string | null
-          success: boolean
-          total_cost: number
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          input_text: string
-          input_tokens?: number
-          metadata?: Json
-          model_id: string
-          output_text?: string | null
-          output_tokens?: number
-          processing_time_ms?: number | null
-          project_id?: string | null
-          prompt_id?: string | null
-          session_id?: string | null
-          success?: boolean
-          total_cost?: number
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          input_text?: string
-          input_tokens?: number
-          metadata?: Json
-          model_id?: string
-          output_text?: string | null
-          output_tokens?: number
-          processing_time_ms?: number | null
-          project_id?: string | null
-          prompt_id?: string | null
-          session_id?: string | null
-          success?: boolean
-          total_cost?: number
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ai_generations_model_id_fkey"
-            columns: ["model_id"]
-            isOneToOne: false
-            referencedRelation: "ai_models"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ai_generations_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ai_generations_prompt_id_fkey"
-            columns: ["prompt_id"]
-            isOneToOne: false
-            referencedRelation: "system_prompts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ai_generations_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "ai_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       ai_messages: {
         Row: {
           code_snippets: Json | null
@@ -145,112 +59,14 @@ export type Database = {
           },
         ]
       }
-      ai_models: {
-        Row: {
-          capabilities: Json
-          cost_per_input_token: number
-          cost_per_output_token: number
-          created_at: string
-          description: string | null
-          display_name: string
-          id: string
-          is_active: boolean
-          max_tokens: number
-          model_name: string
-          provider: Database["public"]["Enums"]["ai_provider"]
-          supports_streaming: boolean
-          supports_vision: boolean
-          updated_at: string
-        }
-        Insert: {
-          capabilities?: Json
-          cost_per_input_token?: number
-          cost_per_output_token?: number
-          created_at?: string
-          description?: string | null
-          display_name: string
-          id?: string
-          is_active?: boolean
-          max_tokens?: number
-          model_name: string
-          provider: Database["public"]["Enums"]["ai_provider"]
-          supports_streaming?: boolean
-          supports_vision?: boolean
-          updated_at?: string
-        }
-        Update: {
-          capabilities?: Json
-          cost_per_input_token?: number
-          cost_per_output_token?: number
-          created_at?: string
-          description?: string | null
-          display_name?: string
-          id?: string
-          is_active?: boolean
-          max_tokens?: number
-          model_name?: string
-          provider?: Database["public"]["Enums"]["ai_provider"]
-          supports_streaming?: boolean
-          supports_vision?: boolean
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      ai_provider_configs: {
-        Row: {
-          api_endpoint: string
-          created_at: string
-          default_model_id: string | null
-          id: string
-          is_enabled: boolean
-          provider: Database["public"]["Enums"]["ai_provider"]
-          rate_limit_requests: number
-          rate_limit_window_minutes: number
-          updated_at: string
-        }
-        Insert: {
-          api_endpoint: string
-          created_at?: string
-          default_model_id?: string | null
-          id?: string
-          is_enabled?: boolean
-          provider: Database["public"]["Enums"]["ai_provider"]
-          rate_limit_requests?: number
-          rate_limit_window_minutes?: number
-          updated_at?: string
-        }
-        Update: {
-          api_endpoint?: string
-          created_at?: string
-          default_model_id?: string | null
-          id?: string
-          is_enabled?: boolean
-          provider?: Database["public"]["Enums"]["ai_provider"]
-          rate_limit_requests?: number
-          rate_limit_window_minutes?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ai_provider_configs_default_model_id_fkey"
-            columns: ["default_model_id"]
-            isOneToOne: false
-            referencedRelation: "ai_models"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       ai_sessions: {
         Row: {
           context_data: Json | null
           created_at: string | null
           id: string
-          model_id: string | null
           project_id: string | null
           session_name: string | null
           status: string | null
-          total_cost: number
-          total_tokens: number
           updated_at: string | null
           user_id: string
         }
@@ -258,12 +74,9 @@ export type Database = {
           context_data?: Json | null
           created_at?: string | null
           id?: string
-          model_id?: string | null
           project_id?: string | null
           session_name?: string | null
           status?: string | null
-          total_cost?: number
-          total_tokens?: number
           updated_at?: string | null
           user_id: string
         }
@@ -271,23 +84,13 @@ export type Database = {
           context_data?: Json | null
           created_at?: string | null
           id?: string
-          model_id?: string | null
           project_id?: string | null
           session_name?: string | null
           status?: string | null
-          total_cost?: number
-          total_tokens?: number
           updated_at?: string | null
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "ai_sessions_model_id_fkey"
-            columns: ["model_id"]
-            isOneToOne: false
-            referencedRelation: "ai_models"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "ai_sessions_project_id_fkey"
             columns: ["project_id"]
@@ -678,84 +481,6 @@ export type Database = {
         }
         Relationships: []
       }
-      system_prompts: {
-        Row: {
-          category: Database["public"]["Enums"]["prompt_category"]
-          content: string
-          created_at: string
-          created_by: string | null
-          description: string | null
-          id: string
-          is_active: boolean
-          name: string
-          updated_at: string
-          version: number
-        }
-        Insert: {
-          category: Database["public"]["Enums"]["prompt_category"]
-          content: string
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          name: string
-          updated_at?: string
-          version?: number
-        }
-        Update: {
-          category?: Database["public"]["Enums"]["prompt_category"]
-          content?: string
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          name?: string
-          updated_at?: string
-          version?: number
-        }
-        Relationships: []
-      }
-      user_billing: {
-        Row: {
-          billing_cycle_end: string
-          billing_cycle_start: string
-          created_at: string
-          current_usage: number
-          id: string
-          monthly_limit: number
-          plan_name: string
-          status: Database["public"]["Enums"]["billing_status"]
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          billing_cycle_end?: string
-          billing_cycle_start?: string
-          created_at?: string
-          current_usage?: number
-          id?: string
-          monthly_limit?: number
-          plan_name?: string
-          status?: Database["public"]["Enums"]["billing_status"]
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          billing_cycle_end?: string
-          billing_cycle_start?: string
-          created_at?: string
-          current_usage?: number
-          id?: string
-          monthly_limit?: number
-          plan_name?: string
-          status?: Database["public"]["Enums"]["billing_status"]
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       user_feedback: {
         Row: {
           comment: string | null
@@ -851,15 +576,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      ai_provider: "openai" | "anthropic" | "google" | "mistral" | "local"
-      billing_status: "active" | "suspended" | "trial" | "expired"
       project_status: "active" | "error" | "deploying" | "archived"
-      prompt_category:
-        | "system"
-        | "coding"
-        | "analysis"
-        | "debugging"
-        | "optimization"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -975,16 +692,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      ai_provider: ["openai", "anthropic", "google", "mistral", "local"],
-      billing_status: ["active", "suspended", "trial", "expired"],
       project_status: ["active", "error", "deploying", "archived"],
-      prompt_category: [
-        "system",
-        "coding",
-        "analysis",
-        "debugging",
-        "optimization",
-      ],
     },
   },
 } as const
