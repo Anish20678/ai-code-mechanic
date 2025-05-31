@@ -1,62 +1,81 @@
 
 import { useState } from 'react';
-import { Key, Edit, Save, X, AlertCircle } from 'lucide-react';
+import { Settings, Eye, EyeOff, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAIProviderConfigs } from '@/hooks/useAIProviderConfigs';
+import { useAIModels } from '@/hooks/useAIModels';
+import AIModelSelector from '@/components/AIModelSelector';
 import type { Database } from '@/integrations/supabase/types';
 
 type AIProviderConfig = Database['public']['Tables']['ai_provider_configs']['Row'];
+type AIModel = Database['public']['Tables']['ai_models']['Row'];
 
 const ProviderConfigManager = () => {
-  const [editingConfig, setEditingConfig] = useState<AIProviderConfig | null>(null);
-  const [formData, setFormData] = useState({
-    api_endpoint: '',
-    is_enabled: true,
-    rate_limit_requests: 100,
-    rate_limit_window_minutes: 60,
-  });
+  const [showApiKeys, setShowApiKeys] = useState<Record<string, boolean>>({});
+  const [editingConfig, setEditingConfig] = useState<string | null>(null);
+  const [configData, setConfigData] = useState<Partial<AIProviderConfig>>({});
 
   const { configs, isLoading, updateConfig } = useAIProviderConfigs();
+  const { models } = useAIModels();
 
-  const handleUpdate = async () => {
-    if (!editingConfig) return;
+  const handleToggleApiKey = (provider: string) => {
+    setShowApiKeys(prev => ({
+      ...prev,
+      [provider]: !prev[provider]
+    }));
+  };
+
+  const startEdit = (config: AIProviderConfig) => {
+    setEditingConfig(config.id);
+    setConfigData(config);
+  };
+
+  const handleSave = async () => {
+    if (!editingConfig || !configData.id) return;
     
     try {
       await updateConfig.mutateAsync({
-        id: editingConfig.id,
-        ...formData,
+        id: configData.id,
+        api_endpoint: configData.api_endpoint,
+        is_enabled: configData.is_enabled,
+        rate_limit_requests: configData.rate_limit_requests,
+        rate_limit_window_minutes: configData.rate_limit_window_minutes,
+        default_model_id: configData.default_model_id,
       });
       setEditingConfig(null);
+      setConfigData({});
     } catch (error) {
       console.error('Failed to update config:', error);
     }
   };
 
-  const startEdit = (config: AIProviderConfig) => {
-    setEditingConfig(config);
-    setFormData({
-      api_endpoint: config.api_endpoint,
-      is_enabled: config.is_enabled,
-      rate_limit_requests: config.rate_limit_requests,
-      rate_limit_window_minutes: config.rate_limit_window_minutes,
-    });
-  };
-
   const cancelEdit = () => {
     setEditingConfig(null);
+    setConfigData({});
   };
 
-  const getProviderStatus = (provider: string) => {
-    // This would check if API keys are configured
-    // For now, we'll simulate this
-    const hasApiKey = ['openai', 'anthropic', 'google'].includes(provider);
-    return hasApiKey;
+  const getProviderDisplayName = (provider: string) => {
+    switch (provider) {
+      case 'openai':
+        return 'OpenAI';
+      case 'anthropic':
+        return 'Anthropic';
+      case 'google':
+        return 'Google';
+      case 'deepseek':
+        return 'DeepSeek';
+      default:
+        return provider.charAt(0).toUpperCase() + provider.slice(1);
+    }
+  };
+
+  const getDefaultModelForProvider = (provider: string): AIModel | null => {
+    return models?.find(model => model.provider === provider) || null;
   };
 
   if (isLoading) {
@@ -65,167 +84,132 @@ const ProviderConfigManager = () => {
 
   return (
     <div className="space-y-6">
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          Provider configurations require API keys to be set in the project secrets. 
-          Make sure to configure the necessary API keys for each provider.
-        </AlertDescription>
-      </Alert>
-
-      <div className="grid gap-6">
-        {configs?.map((config) => (
-          <Card key={config.id}>
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    {config.provider.charAt(0).toUpperCase() + config.provider.slice(1)}
-                    <Badge variant={config.is_enabled ? 'default' : 'secondary'}>
-                      {config.is_enabled ? 'Enabled' : 'Disabled'}
-                    </Badge>
-                    <Badge variant={getProviderStatus(config.provider) ? 'default' : 'destructive'}>
-                      {getProviderStatus(config.provider) ? 'API Key Set' : 'No API Key'}
-                    </Badge>
-                  </CardTitle>
-                  <CardDescription>
-                    Configure settings for {config.provider} API integration
-                  </CardDescription>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => startEdit(config)}
-                  disabled={editingConfig?.id === config.id}
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {editingConfig?.id === config.id ? (
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="api_endpoint">API Endpoint</Label>
-                    <Input
-                      id="api_endpoint"
-                      value={formData.api_endpoint}
-                      onChange={(e) => setFormData({ ...formData, api_endpoint: e.target.value })}
-                      placeholder="https://api.example.com"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="rate_limit_requests">Rate Limit (requests)</Label>
-                      <Input
-                        id="rate_limit_requests"
-                        type="number"
-                        value={formData.rate_limit_requests}
-                        onChange={(e) => setFormData({ ...formData, rate_limit_requests: parseInt(e.target.value) })}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="rate_limit_window">Time Window (minutes)</Label>
-                      <Input
-                        id="rate_limit_window"
-                        type="number"
-                        value={formData.rate_limit_window_minutes}
-                        onChange={(e) => setFormData({ ...formData, rate_limit_window_minutes: parseInt(e.target.value) })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="is_enabled"
-                      checked={formData.is_enabled}
-                      onCheckedChange={(checked) => setFormData({ ...formData, is_enabled: checked })}
-                    />
-                    <Label htmlFor="is_enabled">Enable Provider</Label>
-                  </div>
-
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={cancelEdit}>
-                      <X className="h-4 w-4 mr-2" />
-                      Cancel
-                    </Button>
-                    <Button onClick={handleUpdate}>
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Changes
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-600">API Endpoint</p>
-                    <p className="font-mono">{config.api_endpoint}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Rate Limit</p>
-                    <p>{config.rate_limit_requests} requests / {config.rate_limit_window_minutes} min</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Status</p>
-                    <p className={config.is_enabled ? 'text-green-600' : 'text-gray-500'}>
-                      {config.is_enabled ? 'Enabled' : 'Disabled'}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-medium">Provider Configurations ({configs?.length || 0})</h3>
       </div>
 
-      {/* API Key Configuration Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5" />
-            API Key Configuration
-          </CardTitle>
-          <CardDescription>
-            Configure API keys for each provider to enable AI functionality.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="grid gap-3">
-              <div className="flex items-center justify-between p-3 border rounded">
-                <div>
-                  <p className="font-medium">OpenAI API Key</p>
-                  <p className="text-sm text-gray-600">Required for GPT models</p>
+      <div className="grid gap-6">
+        {configs?.map((config) => {
+          const isEditing = editingConfig === config.id;
+          const currentData = isEditing ? configData : config;
+          const defaultModel = getDefaultModelForProvider(config.provider);
+
+          return (
+            <Card key={config.id}>
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      {getProviderDisplayName(config.provider)}
+                    </CardTitle>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge variant={config.is_enabled ? 'default' : 'secondary'}>
+                        {config.is_enabled ? 'Enabled' : 'Disabled'}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {isEditing ? (
+                      <>
+                        <Button variant="outline" size="sm" onClick={cancelEdit}>
+                          Cancel
+                        </Button>
+                        <Button size="sm" onClick={handleSave}>
+                          <Save className="h-4 w-4 mr-2" />
+                          Save
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => startEdit(config)}
+                      >
+                        Configure
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <Badge variant={getProviderStatus('openai') ? 'default' : 'destructive'}>
-                  {getProviderStatus('openai') ? 'Configured' : 'Not Set'}
-                </Badge>
-              </div>
-              
-              <div className="flex items-center justify-between p-3 border rounded">
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div>
-                  <p className="font-medium">Anthropic API Key</p>
-                  <p className="text-sm text-gray-600">Required for Claude models</p>
+                  <Label htmlFor={`api-endpoint-${config.id}`}>API Endpoint</Label>
+                  <Input
+                    id={`api-endpoint-${config.id}`}
+                    value={currentData.api_endpoint || ''}
+                    onChange={(e) => setConfigData({ ...configData, api_endpoint: e.target.value })}
+                    disabled={!isEditing}
+                    placeholder="https://api.provider.com/v1"
+                  />
                 </div>
-                <Badge variant={getProviderStatus('anthropic') ? 'default' : 'destructive'}>
-                  {getProviderStatus('anthropic') ? 'Configured' : 'Not Set'}
-                </Badge>
-              </div>
-              
-              <div className="flex items-center justify-between p-3 border rounded">
+
                 <div>
-                  <p className="font-medium">Google API Key</p>
-                  <p className="text-sm text-gray-600">Required for Gemini models</p>
+                  <Label htmlFor={`default-model-${config.id}`}>Default Model</Label>
+                  {isEditing ? (
+                    <AIModelSelector
+                      selectedModel={models?.find(m => m.id === currentData.default_model_id) || null}
+                      onModelChange={(model) => setConfigData({ ...configData, default_model_id: model.id })}
+                      provider={config.provider}
+                    />
+                  ) : (
+                    <Input
+                      value={defaultModel?.display_name || 'No default model set'}
+                      disabled
+                    />
+                  )}
                 </div>
-                <Badge variant={getProviderStatus('google') ? 'default' : 'destructive'}>
-                  {getProviderStatus('google') ? 'Configured' : 'Not Set'}
-                </Badge>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor={`rate-limit-${config.id}`}>Rate Limit (requests)</Label>
+                    <Input
+                      id={`rate-limit-${config.id}`}
+                      type="number"
+                      value={currentData.rate_limit_requests || 0}
+                      onChange={(e) => setConfigData({ ...configData, rate_limit_requests: Number(e.target.value) })}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`window-${config.id}`}>Window (minutes)</Label>
+                    <Input
+                      id={`window-${config.id}`}
+                      type="number"
+                      value={currentData.rate_limit_window_minutes || 0}
+                      onChange={(e) => setConfigData({ ...configData, rate_limit_window_minutes: Number(e.target.value) })}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id={`enabled-${config.id}`}
+                    checked={currentData.is_enabled || false}
+                    onCheckedChange={(checked) => setConfigData({ ...configData, is_enabled: checked })}
+                    disabled={!isEditing}
+                  />
+                  <Label htmlFor={`enabled-${config.id}`}>Enable Provider</Label>
+                </div>
+
+                <div className="mt-4 p-3 bg-yellow-50 rounded-md">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Note:</strong> API keys should be configured in your environment variables or secrets management system for security.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {configs?.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-gray-500 mb-4">No provider configurations found.</p>
+          <p className="text-sm text-gray-400">Provider configurations are automatically created when you add AI models.</p>
+        </div>
+      )}
     </div>
   );
 };

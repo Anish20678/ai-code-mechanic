@@ -1,38 +1,40 @@
 
 import { useState } from 'react';
-import { Plus, Edit, Save, X, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, Eye, Brain, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useAIModels } from '@/hooks/useAIModels';
+import { useToast } from '@/components/ui/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
 type AIModel = Database['public']['Tables']['ai_models']['Row'];
-type Provider = Database['public']['Enums']['ai_provider'];
+type AIProvider = Database['public']['Enums']['ai_provider'];
 
 const AIModelsManager = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [editingModel, setEditingModel] = useState<AIModel | null>(null);
   const [formData, setFormData] = useState({
-    display_name: '',
     model_name: '',
-    provider: 'openai' as Provider,
+    display_name: '',
+    provider: 'openai' as AIProvider,
+    description: '',
     cost_per_input_token: 0,
     cost_per_output_token: 0,
     max_tokens: 4000,
     supports_vision: false,
     supports_streaming: true,
-    is_active: true,
-    description: '',
   });
 
   const { models, isLoading, createModel, updateModel } = useAIModels();
+  const { toast } = useToast();
 
-  const providers: Provider[] = ['openai', 'anthropic', 'google'];
+  const providers: AIProvider[] = ['openai', 'anthropic', 'google', 'deepseek'];
 
   const handleCreate = async () => {
     try {
@@ -62,31 +64,29 @@ const AIModelsManager = () => {
   const startEdit = (model: AIModel) => {
     setEditingModel(model);
     setFormData({
-      display_name: model.display_name,
       model_name: model.model_name,
+      display_name: model.display_name,
       provider: model.provider,
+      description: model.description || '',
       cost_per_input_token: Number(model.cost_per_input_token),
       cost_per_output_token: Number(model.cost_per_output_token),
       max_tokens: model.max_tokens,
       supports_vision: model.supports_vision,
       supports_streaming: model.supports_streaming,
-      is_active: model.is_active,
-      description: model.description || '',
     });
   };
 
   const resetForm = () => {
     setFormData({
-      display_name: '',
       model_name: '',
+      display_name: '',
       provider: 'openai',
+      description: '',
       cost_per_input_token: 0,
       cost_per_output_token: 0,
       max_tokens: 4000,
       supports_vision: false,
       supports_streaming: true,
-      is_active: true,
-      description: '',
     });
   };
 
@@ -94,6 +94,34 @@ const AIModelsManager = () => {
     setEditingModel(null);
     setIsCreating(false);
     resetForm();
+  };
+
+  const getProviderIcon = (provider: string) => {
+    switch (provider) {
+      case 'openai':
+        return <Brain className="h-4 w-4" />;
+      case 'anthropic':
+        return <Zap className="h-4 w-4" />;
+      case 'google':
+        return <Eye className="h-4 w-4" />;
+      default:
+        return <Brain className="h-4 w-4" />;
+    }
+  };
+
+  const getProviderColor = (provider: string) => {
+    switch (provider) {
+      case 'openai':
+        return 'bg-green-100 text-green-800';
+      case 'anthropic':
+        return 'bg-orange-100 text-orange-800';
+      case 'google':
+        return 'bg-blue-100 text-blue-800';
+      case 'deepseek':
+        return 'bg-purple-100 text-purple-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
   };
 
   if (isLoading) {
@@ -113,21 +141,21 @@ const AIModelsManager = () => {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="display_name">Display Name</Label>
-                <Input
-                  id="display_name"
-                  value={formData.display_name}
-                  onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
-                  placeholder="e.g., GPT-4o Mini"
-                />
-              </div>
-              <div>
                 <Label htmlFor="model_name">Model Name</Label>
                 <Input
                   id="model_name"
                   value={formData.model_name}
                   onChange={(e) => setFormData({ ...formData, model_name: e.target.value })}
                   placeholder="e.g., gpt-4o-mini"
+                />
+              </div>
+              <div>
+                <Label htmlFor="display_name">Display Name</Label>
+                <Input
+                  id="display_name"
+                  value={formData.display_name}
+                  onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+                  placeholder="e.g., GPT-4o Mini"
                 />
               </div>
             </div>
@@ -137,7 +165,7 @@ const AIModelsManager = () => {
                 <Label htmlFor="provider">Provider</Label>
                 <Select
                   value={formData.provider}
-                  onValueChange={(value: Provider) => setFormData({ ...formData, provider: value })}
+                  onValueChange={(value: AIProvider) => setFormData({ ...formData, provider: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -157,9 +185,19 @@ const AIModelsManager = () => {
                   id="max_tokens"
                   type="number"
                   value={formData.max_tokens}
-                  onChange={(e) => setFormData({ ...formData, max_tokens: parseInt(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, max_tokens: Number(e.target.value) })}
                 />
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Model description and capabilities"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -170,8 +208,7 @@ const AIModelsManager = () => {
                   type="number"
                   step="0.000001"
                   value={formData.cost_per_input_token}
-                  onChange={(e) => setFormData({ ...formData, cost_per_input_token: parseFloat(e.target.value) })}
-                  placeholder="0.000001"
+                  onChange={(e) => setFormData({ ...formData, cost_per_input_token: Number(e.target.value) })}
                 />
               </div>
               <div>
@@ -181,23 +218,12 @@ const AIModelsManager = () => {
                   type="number"
                   step="0.000001"
                   value={formData.cost_per_output_token}
-                  onChange={(e) => setFormData({ ...formData, cost_per_output_token: parseFloat(e.target.value) })}
-                  placeholder="0.000001"
+                  onChange={(e) => setFormData({ ...formData, cost_per_output_token: Number(e.target.value) })}
                 />
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Input
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Brief description of the model"
-              />
-            </div>
-
-            <div className="flex gap-6">
+            <div className="flex items-center space-x-6">
               <div className="flex items-center space-x-2">
                 <Switch
                   id="supports_vision"
@@ -214,14 +240,6 @@ const AIModelsManager = () => {
                 />
                 <Label htmlFor="supports_streaming">Supports Streaming</Label>
               </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="is_active"
-                  checked={formData.is_active}
-                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                />
-                <Label htmlFor="is_active">Active</Label>
-              </div>
             </div>
 
             <div className="flex justify-end gap-2">
@@ -231,7 +249,7 @@ const AIModelsManager = () => {
               </Button>
               <Button 
                 onClick={editingModel ? handleUpdate : handleCreate}
-                disabled={!formData.display_name || !formData.model_name}
+                disabled={!formData.model_name || !formData.display_name}
               >
                 <Save className="h-4 w-4 mr-2" />
                 {editingModel ? 'Update' : 'Create'}
@@ -259,20 +277,22 @@ const AIModelsManager = () => {
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle className="text-base">{model.display_name}</CardTitle>
-                  <p className="text-sm text-gray-600">{model.model_name}</p>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    {getProviderIcon(model.provider)}
+                    {model.display_name}
+                  </CardTitle>
                   <div className="flex items-center gap-2 mt-2">
-                    <Badge variant="outline">
-                      {model.provider.charAt(0).toUpperCase() + model.provider.slice(1)}
+                    <Badge variant="outline" className={getProviderColor(model.provider)}>
+                      {model.provider}
                     </Badge>
                     <Badge variant={model.is_active ? 'default' : 'secondary'}>
                       {model.is_active ? 'Active' : 'Inactive'}
                     </Badge>
                     {model.supports_vision && (
-                      <Badge variant="outline">
-                        <Eye className="h-3 w-3 mr-1" />
-                        Vision
-                      </Badge>
+                      <Badge variant="outline">Vision</Badge>
+                    )}
+                    {model.supports_streaming && (
+                      <Badge variant="outline">Streaming</Badge>
                     )}
                   </div>
                 </div>
@@ -288,23 +308,23 @@ const AIModelsManager = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-4 text-sm">
+              {model.description && (
+                <p className="text-gray-600 text-sm mb-3">{model.description}</p>
+              )}
+              <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-gray-600">Input Cost</p>
-                  <p className="font-mono">${Number(model.cost_per_input_token).toFixed(6)}</p>
+                  <span className="font-medium">Model:</span> {model.model_name}
                 </div>
                 <div>
-                  <p className="text-gray-600">Output Cost</p>
-                  <p className="font-mono">${Number(model.cost_per_output_token).toFixed(6)}</p>
+                  <span className="font-medium">Max Tokens:</span> {model.max_tokens.toLocaleString()}
                 </div>
                 <div>
-                  <p className="text-gray-600">Max Tokens</p>
-                  <p className="font-mono">{model.max_tokens.toLocaleString()}</p>
+                  <span className="font-medium">Input Cost:</span> ${model.cost_per_input_token} per token
+                </div>
+                <div>
+                  <span className="font-medium">Output Cost:</span> ${model.cost_per_output_token} per token
                 </div>
               </div>
-              {model.description && (
-                <p className="text-gray-600 text-sm mt-2">{model.description}</p>
-              )}
             </CardContent>
           </Card>
         ))}

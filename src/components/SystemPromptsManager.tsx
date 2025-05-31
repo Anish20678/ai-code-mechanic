@@ -9,6 +9,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useSystemPrompts } from '@/hooks/useSystemPrompts';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import type { Database } from '@/integrations/supabase/types';
 
 type PromptCategory = Database['public']['Enums']['prompt_category'];
@@ -68,6 +79,27 @@ const SystemPromptsManager = () => {
     setEditingPrompt(null);
     setIsCreating(false);
     setFormData({ name: '', content: '', category: 'coding', description: '' });
+  };
+
+  const handleDelete = async (promptId: string) => {
+    try {
+      // Since we don't have a delete mutation in the hook, we'll deactivate instead
+      await updatePrompt.mutateAsync({
+        id: promptId,
+        is_active: false,
+      });
+      toast({
+        title: "Prompt deactivated",
+        description: "System prompt has been deactivated successfully.",
+      });
+    } catch (error) {
+      console.error('Failed to delete prompt:', error);
+      toast({
+        title: "Error",
+        description: "Failed to deactivate the prompt.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {
@@ -189,6 +221,27 @@ const SystemPromptsManager = () => {
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Deactivate System Prompt</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will deactivate the system prompt "{prompt.name}". It will no longer be available for use but can be reactivated later.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDelete(prompt.id)}>
+                          Deactivate
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
             </CardHeader>
