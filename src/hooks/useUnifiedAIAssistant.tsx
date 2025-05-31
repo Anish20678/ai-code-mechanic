@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -104,7 +105,7 @@ Project Context:
 Recent Conversation:
 ${conversationHistory.slice(-3).map(m => `${m.role}: ${m.content.substring(0, 200)}`).join('\n')}
 
-Please implement the user's request by creating or modifying the necessary files.`;
+Please implement the user's request by creating or modifying the necessary files. Provide complete, working code that follows React/TypeScript best practices.`;
 
         // Call ai-file-executor for code execution
         const { data: executeData, error: executeError } = await supabase.functions.invoke('ai-file-executor', {
@@ -135,7 +136,7 @@ Please implement the user's request by creating or modifying the necessary files
         // Chat mode: use the regular ai-coding-assistant
         console.log('Chat mode: Using ai-coding-assistant for guidance');
         
-        const systemContext = `You are a helpful AI coding assistant. Provide clear, concise guidance and explanations. Focus on helping the user understand concepts and solve problems.
+        const systemContext = `You are Lovable, a helpful AI coding assistant. Provide clear, concise guidance and explanations. Focus on helping the user understand concepts and solve problems.
 
 Current Project Context:
 - Tech Stack: React, TypeScript, Tailwind CSS, Supabase
@@ -148,6 +149,7 @@ Guidelines:
 3. Include code examples when helpful
 4. Suggest best practices and optimizations
 5. Help debug errors with specific solutions
+6. When users want actual file changes, suggest switching to Execute Mode
 
 Be conversational and educational in your responses.`;
 
@@ -317,8 +319,6 @@ Be conversational and educational in your responses.`;
 
   return {
     sendUnifiedMessage,
-    executeFileOperations,
-    analyzeCodeWithAI,
     isLoading
   };
 };

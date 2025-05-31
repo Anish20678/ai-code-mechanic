@@ -123,26 +123,26 @@ async function generateAIResponse(prompt: string, existingFiles: any[], mode: st
     throw new Error('OpenAI API key not configured');
   }
 
-  // Enhanced system prompt for better execute mode behavior
   const systemPrompt = mode === 'execute' 
-    ? `You are an expert AI code executor specialized in React/TypeScript/Tailwind development. You MUST analyze the user's request and provide specific file operations to implement their requirements.
+    ? `You are Lovable, an AI code executor that creates and modifies web applications. You MUST analyze user requests and provide specific file operations to implement their requirements.
 
-CRITICAL EXECUTION MODE RULES:
+CRITICAL EXECUTE MODE RULES:
 1. You MUST respond with a valid JSON object containing "response" and "operations" fields
 2. You MUST provide actual file operations that implement the user's request
-3. DO NOT provide explanations or markdown - only executable operations
-4. Focus on creating complete, functional code
+3. Create complete, functional code that follows React/TypeScript best practices
+4. Use Tailwind CSS for styling and Shadcn/ui components when appropriate
+5. Focus on creating working implementations, not explanations
 
 Tech Stack Context:
 - React 18 with TypeScript
-- Tailwind CSS for styling
+- Tailwind CSS for styling  
 - Supabase for backend
 - Shadcn/ui components available
 - Existing files: ${JSON.stringify(existingFiles?.slice(0, 5) || [], null, 2)}
 
-Response Format (MANDATORY):
+MANDATORY Response Format:
 {
-  "response": "Brief description of what you're implementing",
+  "response": "Brief description of implementation",
   "operations": [
     {
       "type": "create|update|delete|rename",
@@ -152,14 +152,14 @@ Response Format (MANDATORY):
   ]
 }
 
-EXAMPLES OF VALID OPERATIONS:
-- Create dashboard components with proper TypeScript interfaces
-- Implement authentication flows
-- Add form validation and error handling
-- Create API integrations
-- Style with Tailwind CSS classes
+IMPLEMENTATION EXAMPLES:
+- Dashboard components with proper TypeScript interfaces
+- Authentication flows with error handling
+- Form validation and state management
+- API integrations and data fetching
+- Responsive UI with Tailwind classes
 
-You must provide working, complete code in every operation. Do not use placeholders or TODO comments.`
+Provide working, complete code without placeholders or TODO comments. Each operation must contain fully functional code ready for immediate use.`
     : `You are an AI code analyzer. Analyze the provided code and give insights, suggestions, and explanations without making changes.
 
 Context:
@@ -196,7 +196,6 @@ Provide detailed analysis and suggestions in a conversational format.`;
 
     if (mode === 'execute') {
       try {
-        // Clean the response to ensure it's valid JSON
         let cleanedResponse = aiResponse.trim();
         
         // Remove markdown code blocks if present
@@ -210,7 +209,7 @@ Provide detailed analysis and suggestions in a conversational format.`;
         
         // Validate the response structure
         if (!parsed.response || !Array.isArray(parsed.operations)) {
-          throw new Error('Invalid response structure');
+          throw new Error('Invalid response structure from AI');
         }
 
         return {
@@ -221,9 +220,9 @@ Provide detailed analysis and suggestions in a conversational format.`;
         console.error('Failed to parse AI response as JSON:', aiResponse);
         console.error('Parse error:', parseError);
         
-        // Fallback: try to extract operations from text format
+        // Create a fallback response with basic error handling
         return {
-          response: 'AI provided non-JSON response, attempting text extraction',
+          response: 'AI provided non-JSON response. Please try rephrasing your request to be more specific about what files and components you want created.',
           operations: []
         };
       }

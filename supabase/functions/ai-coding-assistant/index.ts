@@ -69,19 +69,19 @@ serve(async (req) => {
         systemPrompt = promptData.content;
         console.log('Using custom system prompt from database for category:', category);
       } else {
-        console.log('No custom system prompt found, using default for mode:', mode);
+        console.log('No custom system prompt found, using enhanced default for mode:', mode);
       }
     } catch (error) {
-      console.log('Error fetching system prompt, using default:', error);
+      console.log('Error fetching system prompt, using enhanced default:', error);
     }
 
     // Enhanced fallback prompts for better execute mode behavior
     if (!systemPrompt) {
       switch (mode) {
         case 'execute':
-          systemPrompt = `You are an AI code executor specialized in React/TypeScript development. You provide guidance and suggestions for code implementation.
+          systemPrompt = `You are Lovable, an AI code executor specialized in React/TypeScript development. You provide clear, actionable guidance for code implementation.
 
-IMPORTANT: You are in GUIDANCE mode - provide clear instructions and code examples, but do not make direct file changes.
+IMPORTANT: You are in GUIDANCE mode - provide clear instructions and examples, but direct users to use Execute Mode for actual file changes.
 
 Current project context:
 - Tech stack: React, TypeScript, Tailwind CSS, Supabase
@@ -94,12 +94,13 @@ Guidelines:
 4. Ensure all code follows React/TypeScript best practices
 5. Use Tailwind CSS for styling
 6. Integrate with existing Supabase setup when needed
+7. When users want actual file changes, remind them to switch to Execute Mode
 
-Be direct and practical in your responses. Focus on providing clear implementation steps.`;
+Be direct and practical. Focus on providing clear implementation steps and complete code examples.`;
           break;
         
         case 'chat':
-          systemPrompt = `You are a helpful AI coding assistant specialized in React/TypeScript development. Provide guidance, suggestions, and explanations.
+          systemPrompt = `You are Lovable, a helpful AI coding assistant specialized in React/TypeScript development. Provide guidance, suggestions, and explanations.
 
 Current project context:
 - Tech stack: React, TypeScript, Tailwind CSS, Supabase
@@ -112,12 +113,13 @@ Guidelines:
 4. Suggest best practices and optimizations
 5. Help debug errors with specific solutions
 6. If creating new files, suggest appropriate file names and structure
+7. When users want actual file changes, suggest switching to Execute Mode
 
-Be conversational and educational in your responses.`;
+Be conversational and educational. Help users understand concepts while providing practical solutions.`;
           break;
         
         case 'analyze':
-          systemPrompt = `You are an AI code analyzer specialized in React/TypeScript development. Analyze code quality, performance, and architecture.
+          systemPrompt = `You are Lovable, an AI code analyzer specialized in React/TypeScript development. Analyze code quality, performance, and architecture.
 
 Current project context:
 - Tech stack: React, TypeScript, Tailwind CSS, Supabase
@@ -135,7 +137,7 @@ Focus on thorough analysis and constructive feedback.`;
           break;
         
         default:
-          systemPrompt = `You are an expert AI coding assistant specialized in web development. You help users write, debug, and improve their code.
+          systemPrompt = `You are Lovable, an expert AI coding assistant specialized in web development. You help users write, debug, and improve their code.
 
 Current project context:
 - Tech stack: React, TypeScript, Tailwind CSS, Supabase
