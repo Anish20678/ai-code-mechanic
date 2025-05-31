@@ -1,12 +1,15 @@
+
 import { useState } from 'react';
-import { FileText, Bot, Rocket, Settings, Monitor, Play, ArrowLeft, Database as DatabaseIcon } from 'lucide-react';
+import { FileText, Bot, Rocket, Monitor, ArrowLeft, Database as DatabaseIcon, FolderOpen, Settings as SettingsIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import UnifiedAIAssistant from './UnifiedAIAssistant';
-import EnhancedFileExplorer from './EnhancedFileExplorer';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import SimplifiedAIAssistant from './SimplifiedAIAssistant';
+import FileExplorer from './FileExplorer';
 import BuildStatus from './BuildStatus';
 import DeploymentManager from './DeploymentManager';
 import EnvironmentVariables from './EnvironmentVariables';
@@ -18,6 +21,7 @@ import { useConversations } from '@/hooks/useConversations';
 import { useCodeFiles } from '@/hooks/useCodeFiles';
 import { useBuildSystem } from '@/hooks/useBuildSystem';
 import { useProjectIntegrations } from '@/hooks/useProjectIntegrations';
+import { useNavigate } from 'react-router-dom';
 import type { Database } from '@/integrations/supabase/types';
 
 type Project = Database['public']['Tables']['projects']['Row'];
@@ -31,6 +35,8 @@ interface ProjectWorkspaceProps {
 const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
   const [selectedFile, setSelectedFile] = useState<CodeFile | null>(null);
   const [currentError, setCurrentError] = useState<string | null>(null);
+  const [showFileExplorer, setShowFileExplorer] = useState(false);
+  const navigate = useNavigate();
 
   const { conversations, createConversation } = useConversations(project.id);
   const { updateCodeFile } = useCodeFiles(project.id);
@@ -71,15 +77,15 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
     setCurrentError(null);
   };
 
-  const handleRun = () => {
-    console.log('Running project...');
+  const handleOpenSettings = () => {
+    navigate('/settings');
   };
 
   const activeConversation = conversations?.[0];
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
-      {/* Project Header */}
+      {/* Simplified Project Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -93,10 +99,6 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
             </div>
           </div>
           <div className="flex items-center space-x-3">
-            <Button variant="outline" onClick={handleRun}>
-              <Play className="h-4 w-4 mr-2" />
-              Run
-            </Button>
             <Button onClick={handleTriggerBuild} className="bg-gray-900 hover:bg-gray-800">
               <Rocket className="h-4 w-4 mr-2" />
               Build & Deploy
@@ -116,63 +118,72 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
       {/* Main Workspace with Resizable Panels */}
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal">
-          {/* Left Panel - AI Assistant & Tools */}
-          <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
+          {/* Left Panel - AI Assistant with File Explorer Toggle */}
+          <ResizablePanel defaultSize={30} minSize={25} maxSize={40}>
             <div className="h-full bg-white border-r border-gray-200 flex flex-col">
-              <Tabs defaultValue="assistant" className="flex-1 flex flex-col h-full">
-                <div className="border-b border-gray-200 px-4 py-2 flex-shrink-0">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="assistant" className="flex items-center gap-1">
-                      <Bot className="h-4 w-4" />
-                      <span className="hidden sm:inline">AI Assistant</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="files" className="flex items-center gap-1">
-                      <FileText className="h-4 w-4" />
-                      <span className="hidden sm:inline">Files</span>
-                    </TabsTrigger>
-                  </TabsList>
+              {/* Toggle for File Explorer */}
+              <div className="border-b border-gray-200 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Bot className="h-5 w-5 text-blue-500" />
+                    <span className="font-medium text-gray-900">AI Assistant</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm" onClick={handleOpenSettings}>
+                      <SettingsIcon className="h-4 w-4" />
+                    </Button>
+                    <div className="flex items-center gap-2">
+                      <FolderOpen className="h-4 w-4 text-gray-500" />
+                      <Switch
+                        checked={showFileExplorer}
+                        onCheckedChange={setShowFileExplorer}
+                        id="file-explorer-toggle"
+                      />
+                    </div>
+                  </div>
                 </div>
-                
-                <TabsContent value="assistant" className="flex-1 m-0 overflow-hidden">
+              </div>
+
+              {showFileExplorer ? (
+                <FileExplorer
+                  projectId={project.id}
+                  selectedFile={selectedFile}
+                  onFileSelect={handleFileSelect}
+                />
+              ) : (
+                <div className="flex-1">
                   {activeConversation ? (
-                    <UnifiedAIAssistant 
+                    <SimplifiedAIAssistant 
                       conversationId={activeConversation.id}
                       projectId={project.id}
+                      onOpenSettings={handleOpenSettings}
                     />
                   ) : (
                     <div className="flex-1 flex items-center justify-center p-6">
                       <div className="text-center">
-                        <Bot className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <Bot className="h-12 w-12 text-blue-400 mx-auto mb-4" />
                         <h3 className="font-medium text-gray-900 mb-2">
                           Start with AI Assistant
                         </h3>
                         <p className="text-gray-500 text-sm mb-4">
                           Get help with coding or execute commands directly.
                         </p>
-                        <Button onClick={handleStartChat} className="bg-gray-900 hover:bg-gray-800">
+                        <Button onClick={handleStartChat} className="bg-blue-600 hover:bg-blue-700">
                           <Bot className="h-4 w-4 mr-2" />
                           Start AI Assistant
                         </Button>
                       </div>
                     </div>
                   )}
-                </TabsContent>
-
-                <TabsContent value="files" className="flex-1 m-0 overflow-hidden">
-                  <EnhancedFileExplorer
-                    projectId={project.id}
-                    selectedFile={selectedFile}
-                    onFileSelect={handleFileSelect}
-                  />
-                </TabsContent>
-              </Tabs>
+                </div>
+              )}
             </div>
           </ResizablePanel>
 
           <ResizableHandle withHandle />
 
           {/* Right Panel - Code Editor & Preview */}
-          <ResizablePanel defaultSize={75} minSize={60}>
+          <ResizablePanel defaultSize={70} minSize={60}>
             <div className="h-full flex flex-col">
               <Tabs defaultValue="editor" className="flex-1 flex flex-col h-full">
                 <div className="bg-white border-b border-gray-200 px-4 py-2 flex-shrink-0">
@@ -209,9 +220,16 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
                         <h3 className="text-lg font-medium text-gray-900 mb-2">
                           Select a file to edit
                         </h3>
-                        <p className="text-gray-500">
+                        <p className="text-gray-500 mb-4">
                           Choose a file from the explorer or create a new one to start coding.
                         </p>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setShowFileExplorer(true)}
+                        >
+                          <FolderOpen className="h-4 w-4 mr-2" />
+                          Open File Explorer
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -253,7 +271,7 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
                       <Card>
                         <CardHeader>
                           <CardTitle className="flex items-center gap-2">
-                            <Settings className="h-5 w-5" />
+                            <SettingsIcon className="h-5 w-5" />
                             Project Integrations
                           </CardTitle>
                           <CardDescription>
@@ -280,7 +298,7 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
                               </div>
                             ) : (
                               <div className="text-center py-8 text-gray-500">
-                                <Settings className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                                <SettingsIcon className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                                 <p>No integrations configured yet</p>
                                 <p className="text-sm">Add external services to enhance your project</p>
                               </div>
