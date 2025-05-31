@@ -1,334 +1,421 @@
 
 import { useState } from 'react';
-import { File, Folder, Plus, FolderOpen, Trash2, Edit2, Copy } from 'lucide-react';
+import { File, Folder, FolderOpen, Plus, Search, MoreVertical, FileText, Image, Code, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { useCodeFiles } from '@/hooks/useCodeFiles';
-import { cn } from '@/lib/utils';
-import CodeGeneratorDialog from './CodeGeneratorDialog';
+import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
 type CodeFile = Database['public']['Tables']['code_files']['Row'];
 
 interface EnhancedFileExplorerProps {
   projectId: string;
-  selectedFile?: CodeFile;
+  selectedFile: CodeFile | null;
   onFileSelect: (file: CodeFile) => void;
 }
 
 const EnhancedFileExplorer = ({ projectId, selectedFile, onFileSelect }: EnhancedFileExplorerProps) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['src']));
+  const [isCreateFileOpen, setIsCreateFileOpen] = useState(false);
   const [newFileName, setNewFileName] = useState('');
-  const [showNewFileInput, setShowNewFileInput] = useState(false);
-  const [editingFile, setEditingFile] = useState<string | null>(null);
-  const [editFileName, setEditFileName] = useState('');
+  const [newFileType, setNewFileType] = useState('component');
   
-  const { 
-    codeFiles, 
-    isLoading, 
-    createCodeFile, 
-    updateCodeFile, 
-    deleteCodeFile, 
-    duplicateCodeFile, 
-    renameCodeFile 
-  } = useCodeFiles(projectId);
+  const { files, createFile, deleteFile } = useCodeFiles(projectId);
+  const { toast } = useToast();
 
-  const handleCreateFile = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const fileTree = buildFileTree(files || []);
+  const filteredTree = filterTree(fileTree, searchTerm);
+
+  const handleCreateFile = async () => {
     if (!newFileName.trim()) return;
 
+    const extension = getFileExtension(newFileType);
+    const fileName = newFileName.endsWith(extension) ? newFileName : `${newFileName}${extension}`;
+    const filePath = `src/components/${fileName}`;
+
+    const template = getFileTemplate(newFileType, fileName);
+
     try {
-      await createCodeFile.mutateAsync({
+      await createFile.mutateAsync({
         project_id: projectId,
-        file_path: newFileName,
-        content: '',
+        file_path: filePath,
+        content: template,
+      });
+
+      toast({
+        title: "File created",
+        description: `${fileName} has been created successfully.`,
       });
 
       setNewFileName('');
-      setShowNewFileInput(false);
+      setIsCreateFileOpen(false);
     } catch (error) {
-      console.error('Failed to create file:', error);
-    }
-  };
-
-  const handleRenameFile = async (fileId: string) => {
-    if (!editFileName.trim()) return;
-
-    try {
-      await renameCodeFile.mutateAsync({
-        id: fileId,
-        newPath: editFileName,
+      toast({
+        title: "Failed to create file",
+        description: "Could not create the file. Please try again.",
+        variant: "destructive",
       });
-
-      setEditingFile(null);
-      setEditFileName('');
-    } catch (error) {
-      console.error('Failed to rename file:', error);
     }
   };
 
-  const handleDeleteFile = async (fileId: string) => {
-    try {
-      await deleteCodeFile.mutateAsync(fileId);
-    } catch (error) {
-      console.error('Failed to delete file:', error);
+  const handleDeleteFile = async (file: CodeFile) => {
+    if (confirm(`Are you sure you want to delete ${file.file_path}?`)) {
+      try {
+        await deleteFile.mutateAsync(file.id);
+        toast({
+          title: "File deleted",
+          description: `${file.file_path} has been deleted.`,
+        });
+      } catch (error) {
+        toast({
+          title: "Failed to delete file",
+          description: "Could not delete the file. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
-  const handleDuplicateFile = async (file: CodeFile) => {
-    try {
-      await duplicateCodeFile.mutateAsync(file);
-    } catch (error) {
-      console.error('Failed to duplicate file:', error);
+  const toggleFolder = (folderPath: string) => {
+    const newExpanded = new Set(expandedFolders);
+    if (newExpanded.has(folderPath)) {
+      newExpanded.delete(folderPath);
+    } else {
+      newExpanded.add(folderPath);
     }
+    setExpandedFolders(newExpanded);
   };
 
-  const getFileIcon = (filePath: string) => {
-    const extension = filePath.split('.').pop()?.toLowerCase();
-    const iconClass = "h-4 w-4";
-    
+  const getFileIcon = (fileName: string) => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
     switch (extension) {
       case 'tsx':
       case 'jsx':
-        return <File className={`${iconClass} text-blue-500`} />;
+        return <Code className="h-4 w-4 text-blue-500" />;
       case 'ts':
       case 'js':
-        return <File className={`${iconClass} text-yellow-500`} />;
+        return <FileText className="h-4 w-4 text-yellow-500" />;
       case 'css':
-        return <File className={`${iconClass} text-purple-500`} />;
+        return <FileText className="h-4 w-4 text-purple-500" />;
       case 'json':
-        return <File className={`${iconClass} text-green-500`} />;
+        return <Database className="h-4 w-4 text-orange-500" />;
+      case 'png':
+      case 'jpg':
+      case 'jpeg':
+      case 'gif':
+      case 'svg':
+        return <Image className="h-4 w-4 text-green-500" />;
       default:
-        return <File className={`${iconClass} text-gray-500`} />;
+        return <File className="h-4 w-4 text-gray-500" />;
     }
   };
 
-  const organizeFiles = (files: CodeFile[]) => {
-    const folders: { [key: string]: CodeFile[] } = {};
-    const rootFiles: CodeFile[] = [];
-
-    files.forEach(file => {
-      const pathParts = file.file_path.split('/');
-      if (pathParts.length > 1) {
-        const folderName = pathParts[0];
-        if (!folders[folderName]) {
-          folders[folderName] = [];
-        }
-        folders[folderName].push(file);
-      } else {
-        rootFiles.push(file);
-      }
-    });
-
-    return { folders, rootFiles };
-  };
-
-  if (isLoading) {
-    return (
-      <div className="p-4">
-        <div className="animate-pulse space-y-2">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-8 bg-gray-200 rounded" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  const { folders, rootFiles } = organizeFiles(codeFiles || []);
-
-  const FileActions = ({ file }: { file: CodeFile }) => (
-    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={(e) => {
-          e.stopPropagation();
-          handleDuplicateFile(file);
-        }}
-        className="h-6 w-6 p-0"
-        title="Duplicate file"
-      >
-        <Copy className="h-3 w-3" />
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={(e) => {
-          e.stopPropagation();
-          setEditingFile(file.id);
-          setEditFileName(file.file_path);
-        }}
-        className="h-6 w-6 p-0"
-        title="Rename file"
-      >
-        <Edit2 className="h-3 w-3" />
-      </Button>
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={(e) => e.stopPropagation()}
-            className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-            title="Delete file"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete File</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{file.file_path}"? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => handleDeleteFile(file.id)}
-              className="bg-red-500 hover:bg-red-600"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
-
   return (
-    <div className="h-full flex flex-col">
-      <div className="p-4 border-b border-gray-200">
+    <div className="h-full flex flex-col bg-white">
+      {/* Header */}
+      <div className="border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-medium text-gray-900">Files ({codeFiles?.length || 0})</h3>
-          <div className="flex gap-1">
-            <CodeGeneratorDialog 
-              projectId={projectId}
-              existingFiles={codeFiles}
-              onFileCreated={(file) => onFileSelect(file)}
-            />
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowNewFileInput(true)}
-            >
-              <Plus className="h-3 w-3 mr-1" />
-              New
-            </Button>
-          </div>
-        </div>
-        
-        {showNewFileInput && (
-          <form onSubmit={handleCreateFile} className="mt-2">
-            <Input
-              value={newFileName}
-              onChange={(e) => setNewFileName(e.target.value)}
-              placeholder="filename.tsx"
-              className="text-sm"
-              autoFocus
-              onBlur={() => {
-                if (!newFileName.trim()) {
-                  setShowNewFileInput(false);
-                }
-              }}
-            />
-          </form>
-        )}
-      </div>
-
-      <ScrollArea className="flex-1">
-        <div className="p-2">
-          {/* Root files */}
-          {rootFiles.map((file) => (
-            <div key={file.id} className="group">
-              {editingFile === file.id ? (
-                <div className="p-2">
+          <h3 className="font-medium text-gray-900">Files</h3>
+          <Dialog open={isCreateFileOpen} onOpenChange={setIsCreateFileOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New File</DialogTitle>
+                <DialogDescription>
+                  Add a new file to your project
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="fileName">File Name</Label>
                   <Input
-                    value={editFileName}
-                    onChange={(e) => setEditFileName(e.target.value)}
-                    onBlur={() => handleRenameFile(file.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleRenameFile(file.id);
-                      if (e.key === 'Escape') {
-                        setEditingFile(null);
-                        setEditFileName('');
-                      }
-                    }}
-                    className="text-sm"
-                    autoFocus
+                    id="fileName"
+                    value={newFileName}
+                    onChange={(e) => setNewFileName(e.target.value)}
+                    placeholder="MyComponent"
                   />
                 </div>
-              ) : (
-                <div
-                  className={cn(
-                    "flex items-center justify-between p-2 text-sm rounded hover:bg-gray-100 transition-colors cursor-pointer",
-                    selectedFile?.id === file.id && "bg-gray-100"
-                  )}
-                  onClick={() => onFileSelect(file)}
-                >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    {getFileIcon(file.file_path)}
-                    <span className="truncate">{file.file_path}</span>
-                  </div>
-                  <FileActions file={file} />
+                <div>
+                  <Label htmlFor="fileType">File Type</Label>
+                  <select
+                    id="fileType"
+                    value={newFileType}
+                    onChange={(e) => setNewFileType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="component">React Component (.tsx)</option>
+                    <option value="hook">React Hook (.tsx)</option>
+                    <option value="utility">Utility (.ts)</option>
+                    <option value="style">Stylesheet (.css)</option>
+                    <option value="json">JSON (.json)</option>
+                  </select>
                 </div>
-              )}
-            </div>
-          ))}
-
-          {/* Folders */}
-          {Object.entries(folders).map(([folderName, files]) => (
-            <div key={folderName} className="mt-2">
-              <div className="flex items-center gap-2 p-2 text-sm font-medium text-gray-700">
-                <FolderOpen className="h-4 w-4 text-blue-500" />
-                <span>{folderName}</span>
-                <span className="text-xs text-gray-500">({files.length})</span>
               </div>
-              <div className="ml-4">
-                {files.map((file) => (
-                  <div key={file.id} className="group">
-                    <div
-                      className={cn(
-                        "flex items-center justify-between p-2 text-sm rounded hover:bg-gray-100 transition-colors cursor-pointer",
-                        selectedFile?.id === file.id && "bg-gray-100"
-                      )}
-                      onClick={() => onFileSelect(file)}
-                    >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        {getFileIcon(file.file_path)}
-                        <span className="truncate">{file.file_path.split('/').pop()}</span>
-                      </div>
-                      <FileActions file={file} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsCreateFileOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateFile}>
+                  Create File
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+        
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search files..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
 
-          {(!codeFiles || codeFiles.length === 0) && (
-            <div className="text-center py-8">
-              <File className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-500">No files yet</p>
-              <p className="text-xs text-gray-400 mt-1">Use "Generate Code" or "New" to create files</p>
-            </div>
-          )}
+      {/* File Tree */}
+      <ScrollArea className="flex-1">
+        <div className="p-2">
+          {renderTreeNode(filteredTree, '', expandedFolders, toggleFolder, selectedFile, onFileSelect, handleDeleteFile, getFileIcon)}
         </div>
       </ScrollArea>
     </div>
   );
 };
+
+// Helper functions
+function buildFileTree(files: CodeFile[]) {
+  const tree: any = {};
+  
+  files.forEach(file => {
+    const parts = file.file_path.split('/');
+    let current = tree;
+    
+    parts.forEach((part, index) => {
+      if (index === parts.length - 1) {
+        current[part] = file;
+      } else {
+        if (!current[part]) {
+          current[part] = {};
+        }
+        current = current[part];
+      }
+    });
+  });
+  
+  return tree;
+}
+
+function filterTree(tree: any, searchTerm: string): any {
+  if (!searchTerm) return tree;
+  
+  const filtered: any = {};
+  
+  function traverse(node: any, path: string = '') {
+    for (const [key, value] of Object.entries(node)) {
+      const currentPath = path ? `${path}/${key}` : key;
+      
+      if (value && typeof value === 'object' && 'id' in value) {
+        // This is a file
+        if (currentPath.toLowerCase().includes(searchTerm.toLowerCase())) {
+          setNestedProperty(filtered, currentPath.split('/'), value);
+        }
+      } else {
+        // This is a folder
+        traverse(value, currentPath);
+      }
+    }
+  }
+  
+  traverse(tree);
+  return filtered;
+}
+
+function setNestedProperty(obj: any, path: string[], value: any) {
+  let current = obj;
+  for (let i = 0; i < path.length - 1; i++) {
+    if (!current[path[i]]) {
+      current[path[i]] = {};
+    }
+    current = current[path[i]];
+  }
+  current[path[path.length - 1]] = value;
+}
+
+function renderTreeNode(
+  node: any,
+  path: string,
+  expandedFolders: Set<string>,
+  toggleFolder: (path: string) => void,
+  selectedFile: CodeFile | null,
+  onFileSelect: (file: CodeFile) => void,
+  onDeleteFile: (file: CodeFile) => void,
+  getFileIcon: (fileName: string) => JSX.Element,
+  depth: number = 0
+): JSX.Element[] {
+  const items: JSX.Element[] = [];
+  
+  const sortedEntries = Object.entries(node).sort(([a, aVal], [b, bVal]) => {
+    const aIsFile = aVal && typeof aVal === 'object' && 'id' in aVal;
+    const bIsFile = bVal && typeof bVal === 'object' && 'id' in bVal;
+    
+    if (aIsFile && !bIsFile) return 1;
+    if (!aIsFile && bIsFile) return -1;
+    return a.localeCompare(b);
+  });
+  
+  sortedEntries.forEach(([key, value]) => {
+    const currentPath = path ? `${path}/${key}` : key;
+    const isFile = value && typeof value === 'object' && 'id' in value;
+    
+    if (isFile) {
+      const file = value as CodeFile;
+      items.push(
+        <div
+          key={file.id}
+          className={`flex items-center px-2 py-1 rounded cursor-pointer hover:bg-gray-100 ${
+            selectedFile?.id === file.id ? 'bg-blue-50 border-l-2 border-blue-500' : ''
+          }`}
+          style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
+          onClick={() => onFileSelect(file)}
+        >
+          {getFileIcon(key)}
+          <span className="ml-2 text-sm truncate flex-1">{key}</span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100">
+                <MoreVertical className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => onDeleteFile(file)}>
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      );
+    } else {
+      const isExpanded = expandedFolders.has(currentPath);
+      items.push(
+        <div key={currentPath}>
+          <div
+            className="flex items-center px-2 py-1 rounded cursor-pointer hover:bg-gray-100"
+            style={{ paddingLeft: `${depth * 12 + 8}px` }}
+            onClick={() => toggleFolder(currentPath)}
+          >
+            {isExpanded ? (
+              <FolderOpen className="h-4 w-4 text-blue-500" />
+            ) : (
+              <Folder className="h-4 w-4 text-blue-500" />
+            )}
+            <span className="ml-2 text-sm font-medium">{key}</span>
+          </div>
+          {isExpanded && (
+            <div>
+              {renderTreeNode(value, currentPath, expandedFolders, toggleFolder, selectedFile, onFileSelect, onDeleteFile, getFileIcon, depth + 1)}
+            </div>
+          )}
+        </div>
+      );
+    }
+  });
+  
+  return items;
+}
+
+function getFileExtension(fileType: string): string {
+  switch (fileType) {
+    case 'component':
+    case 'hook':
+      return '.tsx';
+    case 'utility':
+      return '.ts';
+    case 'style':
+      return '.css';
+    case 'json':
+      return '.json';
+    default:
+      return '.tsx';
+  }
+}
+
+function getFileTemplate(fileType: string, fileName: string): string {
+  const componentName = fileName.replace(/\.[^/.]+$/, '');
+  
+  switch (fileType) {
+    case 'component':
+      return `import React from 'react';
+
+interface ${componentName}Props {
+  // Define your props here
+}
+
+const ${componentName} = ({}: ${componentName}Props) => {
+  return (
+    <div>
+      <h1>${componentName}</h1>
+    </div>
+  );
+};
+
+export default ${componentName};
+`;
+    case 'hook':
+      return `import { useState, useEffect } from 'react';
+
+export const ${componentName} = () => {
+  const [state, setState] = useState();
+
+  useEffect(() => {
+    // Add your effect logic here
+  }, []);
+
+  return {
+    state,
+    setState,
+  };
+};
+`;
+    case 'utility':
+      return `// Utility functions for ${componentName}
+
+export const ${componentName.toLowerCase()} = () => {
+  // Add your utility functions here
+};
+`;
+    case 'style':
+      return `/* Styles for ${componentName} */
+
+.${componentName.toLowerCase()} {
+  /* Add your styles here */
+}
+`;
+    case 'json':
+      return `{
+  "name": "${componentName}",
+  "description": ""
+}
+`;
+    default:
+      return '';
+  }
+}
 
 export default EnhancedFileExplorer;

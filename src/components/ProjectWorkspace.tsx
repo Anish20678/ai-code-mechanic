@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import EnhancedChatInterface from './EnhancedChatInterface';
 import EnhancedFileExplorer from './EnhancedFileExplorer';
 import AutonomousAgentPanel from './AutonomousAgentPanel';
@@ -13,6 +14,7 @@ import DeploymentManager from './DeploymentManager';
 import EnvironmentVariables from './EnvironmentVariables';
 import CodeEditor from './CodeEditor';
 import ErrorDisplay from './ErrorDisplay';
+import LivePreview from './LivePreview';
 import { useConversations } from '@/hooks/useConversations';
 import { useCodeFiles } from '@/hooks/useCodeFiles';
 import { useBuildSystem } from '@/hooks/useBuildSystem';
@@ -77,7 +79,7 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
   const activeConversation = conversations?.[0];
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
       {/* Project Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -112,200 +114,194 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
         />
       )}
 
-      {/* Main Workspace */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel - AI Assistant & Tools */}
-        <div className="w-96 bg-white border-r border-gray-200 flex flex-col">
-          <Tabs defaultValue="chat" className="flex-1 flex flex-col">
-            <div className="border-b border-gray-200 px-4 py-2 flex-shrink-0">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="chat" className="flex items-center gap-1">
-                  <MessageSquare className="h-4 w-4" />
-                  <span className="hidden sm:inline">Chat</span>
-                </TabsTrigger>
-                <TabsTrigger value="agent" className="flex items-center gap-1">
-                  <Bot className="h-4 w-4" />
-                  <span className="hidden sm:inline">Agent</span>
-                </TabsTrigger>
-                <TabsTrigger value="files" className="flex items-center gap-1">
-                  <FileText className="h-4 w-4" />
-                  <span className="hidden sm:inline">Files</span>
-                </TabsTrigger>
-              </TabsList>
-            </div>
-            
-            <TabsContent value="chat" className="flex-1 m-0 flex flex-col">
-              <ScrollArea className="flex-1">
-                {activeConversation ? (
-                  <EnhancedChatInterface 
-                    conversationId={activeConversation.id}
-                    projectId={project.id}
-                  />
-                ) : (
-                  <div className="flex-1 flex items-center justify-center p-6">
-                    <div className="text-center">
-                      <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <h3 className="font-medium text-gray-900 mb-2">
-                        Start a conversation
-                      </h3>
-                      <p className="text-gray-500 text-sm mb-4">
-                        Chat with your AI assistant about this project.
-                      </p>
-                      <Button onClick={handleStartChat} className="bg-gray-900 hover:bg-gray-800">
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        Start Chat
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </ScrollArea>
-            </TabsContent>
-
-            <TabsContent value="agent" className="flex-1 m-0 flex flex-col">
-              <ScrollArea className="flex-1">
-                <AutonomousAgentPanel projectId={project.id} />
-              </ScrollArea>
-            </TabsContent>
-
-            <TabsContent value="files" className="flex-1 m-0 flex flex-col">
-              <ScrollArea className="flex-1">
-                <EnhancedFileExplorer
-                  projectId={project.id}
-                  selectedFile={selectedFile}
-                  onFileSelect={handleFileSelect}
-                />
-              </ScrollArea>
-            </TabsContent>
-          </Tabs>
-        </div>
-
-        {/* Right Panel - Code Editor & Preview */}
-        <div className="flex-1 flex flex-col">
-          <Tabs defaultValue="editor" className="flex-1 flex flex-col">
-            <div className="bg-white border-b border-gray-200 px-4 py-2 flex-shrink-0">
-              <TabsList className="grid w-fit grid-cols-3">
-                <TabsTrigger value="editor" className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Code Editor
-                </TabsTrigger>
-                <TabsTrigger value="preview" className="flex items-center gap-2">
-                  <Monitor className="h-4 w-4" />
-                  Live Preview
-                </TabsTrigger>
-                <TabsTrigger value="deploy" className="flex items-center gap-2">
-                  <Rocket className="h-4 w-4" />
-                  Deploy
-                </TabsTrigger>
-              </TabsList>
-            </div>
-            
-            <TabsContent value="editor" className="flex-1 m-0">
-              {selectedFile ? (
-                <CodeEditor 
-                  file={selectedFile}
-                  onContentChange={handleFileContentChange}
-                />
-              ) : (
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center">
-                    <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      Select a file to edit
-                    </h3>
-                    <p className="text-gray-500">
-                      Choose a file from the explorer or create a new one to start coding.
-                    </p>
-                  </div>
+      {/* Main Workspace with Resizable Panels */}
+      <div className="flex-1 overflow-hidden">
+        <ResizablePanelGroup direction="horizontal">
+          {/* Left Panel - AI Assistant & Tools */}
+          <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
+            <div className="h-full bg-white border-r border-gray-200 flex flex-col">
+              <Tabs defaultValue="chat" className="flex-1 flex flex-col h-full">
+                <div className="border-b border-gray-200 px-4 py-2 flex-shrink-0">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="chat" className="flex items-center gap-1">
+                      <MessageSquare className="h-4 w-4" />
+                      <span className="hidden sm:inline">Chat</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="agent" className="flex items-center gap-1">
+                      <Bot className="h-4 w-4" />
+                      <span className="hidden sm:inline">Agent</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="files" className="flex items-center gap-1">
+                      <FileText className="h-4 w-4" />
+                      <span className="hidden sm:inline">Files</span>
+                    </TabsTrigger>
+                  </TabsList>
                 </div>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="preview" className="flex-1 m-0">
-              <div className="flex-1 flex items-center justify-center bg-gray-100">
-                <div className="text-center">
-                  <Monitor className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Live Preview
-                  </h3>
-                  <p className="text-gray-500">
-                    Your app preview will appear here once built.
-                  </p>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="deploy" className="flex-1 m-0">
-              <ScrollArea className="h-full">
-                <div className="p-6 space-y-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <BuildStatus 
+                
+                <TabsContent value="chat" className="flex-1 m-0 overflow-hidden">
+                  {activeConversation ? (
+                    <EnhancedChatInterface 
+                      conversationId={activeConversation.id}
                       projectId={project.id}
-                      onTriggerBuild={handleTriggerBuild}
                     />
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Monitor className="h-5 w-5" />
-                          Live Preview
-                        </CardTitle>
-                        <CardDescription>
-                          Preview your deployed application
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
-                          <p className="text-gray-500">Preview will appear here after deployment</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                  <DeploymentManager projectId={project.id} />
-                  <EnvironmentVariables projectId={project.id} />
-                  
-                  {/* Project Integrations Section */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Settings className="h-5 w-5" />
-                        Project Integrations
-                      </CardTitle>
-                      <CardDescription>
-                        Configure external services and APIs for this project
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {integrations && integrations.length > 0 ? (
-                          <div className="space-y-3">
-                            {integrations.map((integration) => (
-                              <div key={integration.id} className="flex items-center justify-between p-3 border rounded-lg">
-                                <div>
-                                  <p className="font-medium capitalize">{integration.integration_type}</p>
-                                  <p className="text-sm text-gray-500">
-                                    {integration.is_active ? 'Active' : 'Inactive'}
-                                  </p>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <div className={`h-2 w-2 rounded-full ${integration.is_active ? 'bg-green-500' : 'bg-gray-400'}`} />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 text-gray-500">
-                            <Settings className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                            <p>No integrations configured yet</p>
-                            <p className="text-sm">Add external services to enhance your project</p>
-                          </div>
-                        )}
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center p-6">
+                      <div className="text-center">
+                        <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <h3 className="font-medium text-gray-900 mb-2">
+                          Start a conversation
+                        </h3>
+                        <p className="text-gray-500 text-sm mb-4">
+                          Chat with your AI assistant about this project.
+                        </p>
+                        <Button onClick={handleStartChat} className="bg-gray-900 hover:bg-gray-800">
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Start Chat
+                        </Button>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="agent" className="flex-1 m-0 overflow-hidden">
+                  <ScrollArea className="h-full">
+                    <AutonomousAgentPanel projectId={project.id} />
+                  </ScrollArea>
+                </TabsContent>
+
+                <TabsContent value="files" className="flex-1 m-0 overflow-hidden">
+                  <EnhancedFileExplorer
+                    projectId={project.id}
+                    selectedFile={selectedFile}
+                    onFileSelect={handleFileSelect}
+                  />
+                </TabsContent>
+              </Tabs>
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle />
+
+          {/* Right Panel - Code Editor & Preview */}
+          <ResizablePanel defaultSize={75} minSize={60}>
+            <div className="h-full flex flex-col">
+              <Tabs defaultValue="editor" className="flex-1 flex flex-col h-full">
+                <div className="bg-white border-b border-gray-200 px-4 py-2 flex-shrink-0">
+                  <TabsList className="grid w-fit grid-cols-3">
+                    <TabsTrigger value="editor" className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Code Editor
+                    </TabsTrigger>
+                    <TabsTrigger value="preview" className="flex items-center gap-2">
+                      <Monitor className="h-4 w-4" />
+                      Live Preview
+                    </TabsTrigger>
+                    <TabsTrigger value="deploy" className="flex items-center gap-2">
+                      <Rocket className="h-4 w-4" />
+                      Deploy
+                    </TabsTrigger>
+                  </TabsList>
                 </div>
-              </ScrollArea>
-            </TabsContent>
-          </Tabs>
-        </div>
+                
+                <TabsContent value="editor" className="flex-1 m-0 overflow-hidden">
+                  {selectedFile ? (
+                    <CodeEditor 
+                      file={selectedFile}
+                      onContentChange={handleFileContentChange}
+                    />
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center">
+                      <div className="text-center">
+                        <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                          Select a file to edit
+                        </h3>
+                        <p className="text-gray-500">
+                          Choose a file from the explorer or create a new one to start coding.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="preview" className="flex-1 m-0 overflow-hidden">
+                  <LivePreview projectId={project.id} />
+                </TabsContent>
+
+                <TabsContent value="deploy" className="flex-1 m-0 overflow-hidden">
+                  <ScrollArea className="h-full">
+                    <div className="p-6 space-y-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <BuildStatus 
+                          projectId={project.id}
+                          onTriggerBuild={handleTriggerBuild}
+                        />
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Monitor className="h-5 w-5" />
+                              Live Preview
+                            </CardTitle>
+                            <CardDescription>
+                              Preview your deployed application
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
+                              <p className="text-gray-500">Preview will appear here after deployment</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                      <DeploymentManager projectId={project.id} />
+                      <EnvironmentVariables projectId={project.id} />
+                      
+                      {/* Project Integrations Section */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Settings className="h-5 w-5" />
+                            Project Integrations
+                          </CardTitle>
+                          <CardDescription>
+                            Configure external services and APIs for this project
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            {integrations && integrations.length > 0 ? (
+                              <div className="space-y-3">
+                                {integrations.map((integration) => (
+                                  <div key={integration.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                    <div>
+                                      <p className="font-medium capitalize">{integration.integration_type}</p>
+                                      <p className="text-sm text-gray-500">
+                                        {integration.is_active ? 'Active' : 'Inactive'}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <div className={`h-2 w-2 rounded-full ${integration.is_active ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center py-8 text-gray-500">
+                                <Settings className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                                <p>No integrations configured yet</p>
+                                <p className="text-sm">Add external services to enhance your project</p>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+              </Tabs>
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
     </div>
   );
