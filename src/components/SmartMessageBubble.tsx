@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Copy, Check, Code, FileText, Lightbulb, Zap, ChevronDown, ChevronUp } from 'lucide-react';
+import { Copy, Check, Code, FileText, Lightbulb, Zap, ChevronDown, ChevronUp, User } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -57,7 +57,7 @@ const SmartMessageBubble = ({ message, mode }: SmartMessageBubbleProps) => {
                 )}
               </Button>
             </div>
-            <pre className="text-sm font-mono overflow-x-auto">
+            <pre className="text-sm font-mono overflow-x-auto whitespace-pre-wrap">
               <code>{code}</code>
             </pre>
           </div>
@@ -115,24 +115,25 @@ const SmartMessageBubble = ({ message, mode }: SmartMessageBubbleProps) => {
         {metadata.model && (
           <span>{metadata.model}</span>
         )}
+        <span>{formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}</span>
       </div>
     );
   };
 
-  const shouldTruncate = content.length > 500;
+  const shouldTruncate = content.length > 800;
   const displayContent = shouldTruncate && !isExpanded 
-    ? content.substring(0, 500) + '...' 
+    ? content.substring(0, 800) + '...' 
     : content;
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4 group`}>
       <div className={`flex max-w-[85%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start gap-3`}>
         {/* Avatar */}
         <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
           isUser ? 'bg-gray-900' : mode === 'execute' ? 'bg-orange-500' : 'bg-blue-500'
         }`}>
           {isUser ? (
-            <div className="w-4 h-4 bg-white rounded-full" />
+            <User className="h-4 w-4 text-white" />
           ) : mode === 'execute' ? (
             <Zap className="h-4 w-4 text-white" />
           ) : (
@@ -142,14 +143,16 @@ const SmartMessageBubble = ({ message, mode }: SmartMessageBubbleProps) => {
 
         {/* Message Content */}
         <Card className={`${
-          isUser ? 'bg-gray-900 text-white border-gray-700' : 'bg-white border-gray-200'
-        }`}>
+          isUser ? 'bg-gray-900 text-white border-gray-700' : 'bg-white border-gray-200 shadow-sm'
+        } transition-all duration-200 hover:shadow-md`}>
           <CardContent className="p-4">
             <div className="text-sm leading-relaxed">
               {isUser ? (
-                <div className="whitespace-pre-wrap">{displayContent}</div>
+                <div className="whitespace-pre-wrap font-medium">{displayContent}</div>
               ) : (
-                formatContent(displayContent)
+                <div className="space-y-2">
+                  {formatContent(displayContent)}
+                </div>
               )}
             </div>
 
@@ -159,7 +162,7 @@ const SmartMessageBubble = ({ message, mode }: SmartMessageBubbleProps) => {
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="mt-2 h-6 px-2 text-xs"
+                className="mt-2 h-6 px-2 text-xs opacity-70 hover:opacity-100"
               >
                 {isExpanded ? (
                   <>
@@ -175,14 +178,9 @@ const SmartMessageBubble = ({ message, mode }: SmartMessageBubbleProps) => {
               </Button>
             )}
 
-            {/* Message metadata */}
-            {getMessageMetadata()}
-
-            {/* Timestamp */}
+            {/* Message metadata and actions */}
             <div className="flex items-center justify-between mt-3">
-              <p className={`text-xs ${isUser ? 'text-gray-300' : 'text-gray-500'}`}>
-                {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
-              </p>
+              {getMessageMetadata()}
               
               {!isUser && !content.includes('```') && (
                 <Button

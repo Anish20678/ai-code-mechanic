@@ -17,8 +17,8 @@ export const useUnifiedAIAssistant = () => {
   ) => {
     setIsLoading(true);
     try {
-      // First, create and store the user message
-      const { error: userMessageError } = await supabase
+      // First, create and store the user message immediately
+      const { data: userMessage, error: userMessageError } = await supabase
         .from('messages')
         .insert({
           conversation_id: conversationId,
@@ -28,7 +28,9 @@ export const useUnifiedAIAssistant = () => {
             mode: isChatMode ? 'chat' : 'execute',
             timestamp: new Date().toISOString()
           }
-        });
+        })
+        .select()
+        .single();
 
       if (userMessageError) {
         console.error('Error storing user message:', userMessageError);
@@ -41,8 +43,8 @@ export const useUnifiedAIAssistant = () => {
       // Determine the appropriate mode and prompt
       const mode = isChatMode ? 'chat' : 'execute';
       const systemContext = isChatMode
-        ? `You are a helpful AI coding assistant. Provide clear, concise guidance and explanations. Focus on helping the user understand concepts and solve problems. Keep responses brief and avoid showing code blocks unless absolutely necessary for explanation.`
-        : `You are an AI code executor. Execute commands immediately by making necessary code changes. Be direct and efficient. Confirm actions taken without showing detailed code blocks. Focus on results and next steps.`;
+        ? `You are a helpful AI coding assistant. Provide clear, concise guidance and explanations. Focus on helping the user understand concepts and solve problems.`
+        : `You are an AI code executor. You can create, modify, and delete files in the project. Execute commands immediately by making necessary code changes. Be direct and efficient.`;
 
       const { data, error } = await supabase.functions.invoke('ai-coding-assistant', {
         body: {
@@ -60,13 +62,14 @@ export const useUnifiedAIAssistant = () => {
       // Show success toast for execute mode
       if (!isChatMode) {
         toast({
-          title: "Changes Applied",
-          description: "Code has been updated successfully",
+          title: "Code Executed",
+          description: "AI has made changes to your code",
         });
       }
 
       return data.response;
     } catch (error: any) {
+      console.error('AI Assistant error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to get AI response",
@@ -118,12 +121,18 @@ export const useUnifiedAIAssistant = () => {
 
       if (error) throw error;
 
+      toast({
+        title: "Files Updated",
+        description: "AI has executed file operations successfully",
+      });
+
       return {
         response: data.response,
         operations: data.operations,
         executionResults: data.executionResults
       };
     } catch (error: any) {
+      console.error('File executor error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to execute file operations",

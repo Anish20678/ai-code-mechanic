@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { useEffect } from 'react';
 import type { Database } from '@/integrations/supabase/types';
 
 type Message = Database['public']['Tables']['messages']['Row'];
@@ -32,7 +33,35 @@ export const useMessages = (conversationId?: string) => {
       return data as Message[];
     },
     enabled: !!conversationId,
+    refetchInterval: 2000, // Poll every 2 seconds for new messages
   });
+
+  // Set up real-time subscription for messages
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const channel = supabase
+      .channel('messages-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          console.log('Real-time message update:', payload);
+          // Invalidate and refetch messages when changes occur
+          queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [conversationId, queryClient]);
 
   const createMessage = useMutation({
     mutationFn: async (message: Omit<MessageInsert, 'id'>) => {
