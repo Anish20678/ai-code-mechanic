@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { FileText, Bot, Rocket, Monitor, ArrowLeft, Database as DatabaseIcon, FolderOpen, Settings as SettingsIcon } from 'lucide-react';
+import { FileText, Bot, Rocket, Monitor, DatabaseIcon, FolderOpen, Settings as SettingsIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -85,28 +85,6 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
-      {/* Simplified Project Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm" onClick={onBack}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">{project.name}</h1>
-              <p className="text-sm text-gray-500">{project.description}</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <Button onClick={handleTriggerBuild} className="bg-gray-900 hover:bg-gray-800">
-              <Rocket className="h-4 w-4 mr-2" />
-              Build & Deploy
-            </Button>
-          </div>
-        </div>
-      </div>
-
       {/* Error Display */}
       {currentError && (
         <ErrorDisplay 
