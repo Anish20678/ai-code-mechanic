@@ -1,13 +1,12 @@
 import { useState } from 'react';
-import { FileText, MessageSquare, Bot, Rocket, Settings, Monitor, Play, ArrowLeft, Database as DatabaseIcon } from 'lucide-react';
+import { FileText, Bot, Rocket, Settings, Monitor, Play, ArrowLeft, Database as DatabaseIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import EnhancedChatInterface from './EnhancedChatInterface';
+import UnifiedAIAssistant from './UnifiedAIAssistant';
 import EnhancedFileExplorer from './EnhancedFileExplorer';
-import AutonomousAgentPanel from './AutonomousAgentPanel';
 import BuildStatus from './BuildStatus';
 import DeploymentManager from './DeploymentManager';
 import EnvironmentVariables from './EnvironmentVariables';
@@ -55,7 +54,7 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
   const handleStartChat = async () => {
     await createConversation.mutateAsync({
       project_id: project.id,
-      title: `Chat about ${project.name}`,
+      title: `AI Assistant for ${project.name}`,
     });
   };
 
@@ -68,7 +67,7 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
   };
 
   const handleTryFix = () => {
-    console.log('Attempting to fix error with AI Agent...');
+    console.log('Attempting to fix error with AI Assistant...');
     setCurrentError(null);
   };
 
@@ -120,16 +119,12 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
           {/* Left Panel - AI Assistant & Tools */}
           <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
             <div className="h-full bg-white border-r border-gray-200 flex flex-col">
-              <Tabs defaultValue="chat" className="flex-1 flex flex-col h-full">
+              <Tabs defaultValue="assistant" className="flex-1 flex flex-col h-full">
                 <div className="border-b border-gray-200 px-4 py-2 flex-shrink-0">
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="chat" className="flex items-center gap-1">
-                      <MessageSquare className="h-4 w-4" />
-                      <span className="hidden sm:inline">Chat</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="agent" className="flex items-center gap-1">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="assistant" className="flex items-center gap-1">
                       <Bot className="h-4 w-4" />
-                      <span className="hidden sm:inline">Agent</span>
+                      <span className="hidden sm:inline">AI Assistant</span>
                     </TabsTrigger>
                     <TabsTrigger value="files" className="flex items-center gap-1">
                       <FileText className="h-4 w-4" />
@@ -138,35 +133,29 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
                   </TabsList>
                 </div>
                 
-                <TabsContent value="chat" className="flex-1 m-0 overflow-hidden">
+                <TabsContent value="assistant" className="flex-1 m-0 overflow-hidden">
                   {activeConversation ? (
-                    <EnhancedChatInterface 
+                    <UnifiedAIAssistant 
                       conversationId={activeConversation.id}
                       projectId={project.id}
                     />
                   ) : (
                     <div className="flex-1 flex items-center justify-center p-6">
                       <div className="text-center">
-                        <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <Bot className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                         <h3 className="font-medium text-gray-900 mb-2">
-                          Start a conversation
+                          Start with AI Assistant
                         </h3>
                         <p className="text-gray-500 text-sm mb-4">
-                          Chat with your AI assistant about this project.
+                          Get help with coding or execute commands directly.
                         </p>
                         <Button onClick={handleStartChat} className="bg-gray-900 hover:bg-gray-800">
-                          <MessageSquare className="h-4 w-4 mr-2" />
-                          Start Chat
+                          <Bot className="h-4 w-4 mr-2" />
+                          Start AI Assistant
                         </Button>
                       </div>
                     </div>
                   )}
-                </TabsContent>
-
-                <TabsContent value="agent" className="flex-1 m-0 overflow-hidden">
-                  <ScrollArea className="h-full">
-                    <AutonomousAgentPanel projectId={project.id} />
-                  </ScrollArea>
                 </TabsContent>
 
                 <TabsContent value="files" className="flex-1 m-0 overflow-hidden">
