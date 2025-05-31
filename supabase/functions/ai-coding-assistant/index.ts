@@ -32,7 +32,25 @@ serve(async (req) => {
     let systemPrompt = '';
     
     try {
-      const category = mode === 'execute' ? 'code_executor' : 'chat_assistant';
+      // Map mode to the correct category enum value
+      let category = 'coding'; // default to coding
+      
+      switch (mode) {
+        case 'execute':
+          category = 'coding';
+          break;
+        case 'chat':
+          category = 'system';
+          break;
+        case 'analyze':
+          category = 'analysis';
+          break;
+        case 'optimize':
+          category = 'optimization';
+          break;
+        default:
+          category = 'coding';
+      }
       
       const { data: promptData, error: promptError } = await supabase
         .from('system_prompts')

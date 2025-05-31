@@ -16,7 +16,7 @@ const SystemPromptManager = () => {
     name: '',
     description: '',
     content: '',
-    category: 'chat_assistant' as any,
+    category: 'system' as any,
   });
 
   const { systemPrompts, isLoading, createPrompt, updatePrompt, deletePrompt, activatePrompt } = useSystemPrompts();
@@ -30,7 +30,7 @@ const SystemPromptManager = () => {
       version: 1,
     });
 
-    setNewPrompt({ name: '', description: '', content: '', category: 'chat_assistant' });
+    setNewPrompt({ name: '', description: '', content: '', category: 'system' });
     setShowCreateForm(false);
   };
 
@@ -45,11 +45,23 @@ const SystemPromptManager = () => {
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'chat_assistant': return 'bg-blue-100 text-blue-800';
-      case 'code_executor': return 'bg-orange-100 text-orange-800';
-      case 'code_optimizer': return 'bg-green-100 text-green-800';
-      case 'code_analyzer': return 'bg-purple-100 text-purple-800';
+      case 'system': return 'bg-blue-100 text-blue-800';
+      case 'coding': return 'bg-orange-100 text-orange-800';
+      case 'analysis': return 'bg-green-100 text-green-800';
+      case 'debugging': return 'bg-purple-100 text-purple-800';
+      case 'optimization': return 'bg-pink-100 text-pink-800';
       default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getCategoryDisplayName = (category: string) => {
+    switch (category) {
+      case 'system': return 'System';
+      case 'coding': return 'Coding';
+      case 'analysis': return 'Analysis';
+      case 'debugging': return 'Debugging';
+      case 'optimization': return 'Optimization';
+      default: return category;
     }
   };
 
@@ -100,10 +112,11 @@ const SystemPromptManager = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="chat_assistant">Chat Assistant</SelectItem>
-                    <SelectItem value="code_executor">Code Executor</SelectItem>
-                    <SelectItem value="code_optimizer">Code Optimizer</SelectItem>
-                    <SelectItem value="code_analyzer">Code Analyzer</SelectItem>
+                    <SelectItem value="system">System</SelectItem>
+                    <SelectItem value="coding">Coding</SelectItem>
+                    <SelectItem value="analysis">Analysis</SelectItem>
+                    <SelectItem value="debugging">Debugging</SelectItem>
+                    <SelectItem value="optimization">Optimization</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -152,7 +165,7 @@ const SystemPromptManager = () => {
                 <div className="flex items-center gap-3">
                   <CardTitle className="text-lg">{prompt.name}</CardTitle>
                   <Badge className={getCategoryColor(prompt.category)}>
-                    {prompt.category.replace('_', ' ')}
+                    {getCategoryDisplayName(prompt.category)}
                   </Badge>
                   {prompt.is_active && (
                     <Badge variant="outline" className="text-green-600 border-green-600">
@@ -263,10 +276,11 @@ const EditPromptForm = ({ prompt, onSave, onCancel }: any) => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="chat_assistant">Chat Assistant</SelectItem>
-              <SelectItem value="code_executor">Code Executor</SelectItem>
-              <SelectItem value="code_optimizer">Code Optimizer</SelectItem>
-              <SelectItem value="code_analyzer">Code Analyzer</SelectItem>
+              <SelectItem value="system">System</SelectItem>
+              <SelectItem value="coding">Coding</SelectItem>
+              <SelectItem value="analysis">Analysis</SelectItem>
+              <SelectItem value="debugging">Debugging</SelectItem>
+              <SelectItem value="optimization">Optimization</SelectItem>
             </SelectContent>
           </Select>
         </div>
