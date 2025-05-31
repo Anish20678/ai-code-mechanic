@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, MessageSquare, Bot, Rocket, Settings, Monitor, Play, ArrowLeft, Database } from 'lucide-react';
+import { FileText, MessageSquare, Bot, Rocket, Settings, Monitor, Play, ArrowLeft, Database as DatabaseIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -201,7 +201,7 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
                       Deploy
                     </TabsTrigger>
                     <TabsTrigger value="supabase" className="flex items-center gap-2">
-                      <Database className="h-4 w-4" />
+                      <DatabaseIcon className="h-4 w-4" />
                       Supabase
                     </TabsTrigger>
                   </TabsList>
