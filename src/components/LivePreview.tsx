@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Monitor, RefreshCw, ExternalLink, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -31,20 +32,26 @@ const LivePreview = ({ projectId }: LivePreviewProps) => {
       setPreviewUrl(previewBaseUrl);
       setError(null);
     } else {
-      setError('No deployment or build artifact available for preview');
+      // For development, show local preview if no deployment exists
+      const devPreviewUrl = `http://localhost:5173`;
+      setPreviewUrl(devPreviewUrl);
+      setError(null);
     }
   }, [liveUrl, hasSuccessfulBuild, latestBuild, projectId]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    setTimeout(() => {
-      setIsRefreshing(false);
-      // Force iframe reload by updating the key
+    try {
+      // Refresh iframe content
       const iframe = document.getElementById('preview-frame') as HTMLIFrameElement;
       if (iframe && previewUrl) {
         iframe.src = previewUrl + '?t=' + Date.now();
       }
-    }, 1000);
+    } catch (err) {
+      console.error('Error refreshing preview:', err);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 1000);
+    }
   };
 
   const handleOpenInNewTab = () => {
@@ -89,7 +96,7 @@ const LivePreview = ({ projectId }: LivePreviewProps) => {
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Preview Header */}
-      <div className="border-b border-gray-200 px-4 py-3 flex items-center justify-between bg-gray-50">
+      <div className="border-b border-gray-200 px-4 py-3 flex items-center justify-between bg-gray-50 flex-shrink-0">
         <div className="flex items-center gap-3">
           <Monitor className="h-5 w-5 text-gray-600" />
           <div className="flex items-center gap-2">
@@ -131,24 +138,28 @@ const LivePreview = ({ projectId }: LivePreviewProps) => {
 
       {/* URL Bar */}
       {previewUrl && (
-        <div className="border-b border-gray-200 px-4 py-2 bg-gray-50">
+        <div className="border-b border-gray-200 px-4 py-2 bg-gray-50 flex-shrink-0">
           <div className="flex items-center gap-2 text-sm">
             <div className="w-3 h-3 rounded-full bg-green-500"></div>
-            <span className="text-gray-600 font-mono">{previewUrl}</span>
+            <span className="text-gray-600 font-mono truncate">{previewUrl}</span>
           </div>
         </div>
       )}
 
       {/* Preview Frame */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative overflow-hidden">
         {previewUrl ? (
           <iframe
             id="preview-frame"
             src={previewUrl}
             className="w-full h-full border-0"
             title="Live Preview"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
             onError={() => setError('Failed to load preview')}
+            onLoad={() => {
+              console.log('Preview loaded successfully');
+              setError(null);
+            }}
           />
         ) : (
           <div className="h-full flex items-center justify-center">

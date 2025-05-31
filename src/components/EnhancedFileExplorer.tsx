@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { File, Folder, FolderOpen, Plus, Search, MoreVertical, FileText, Image, Code, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -123,7 +124,7 @@ const EnhancedFileExplorer = ({ projectId, selectedFile, onFileSelect }: Enhance
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}
-      <div className="border-b border-gray-200 px-4 py-3">
+      <div className="border-b border-gray-200 px-4 py-3 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-medium text-gray-900">Files</h3>
           <Dialog open={isCreateFileOpen} onOpenChange={setIsCreateFileOpen}>
@@ -288,7 +289,7 @@ function renderTreeNode(
       items.push(
         <div
           key={file.id}
-          className={`flex items-center px-2 py-1 rounded cursor-pointer hover:bg-gray-100 ${
+          className={`group flex items-center px-2 py-1 rounded cursor-pointer hover:bg-gray-100 ${
             selectedFile?.id === file.id ? 'bg-blue-50 border-l-2 border-blue-500' : ''
           }`}
           style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
