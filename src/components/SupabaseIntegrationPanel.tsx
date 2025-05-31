@@ -7,10 +7,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useSupabaseStatus } from '@/hooks/useSupabaseStatus';
+import { useProjects } from '@/hooks/useProjects';
 import SupabaseDatabaseSchema from './SupabaseDatabaseSchema';
 import SupabaseEdgeFunctions from './SupabaseEdgeFunctions';
 import SupabaseAuthStatus from './SupabaseAuthStatus';
 import SupabaseStorageOverview from './SupabaseStorageOverview';
+import ProjectBackendConfig from './ProjectBackendConfig';
+import type { Database as DatabaseType } from '@/integrations/supabase/types';
+
+type Project = DatabaseType['public']['Tables']['projects']['Row'];
 
 interface SupabaseIntegrationPanelProps {
   projectId: string;
@@ -18,7 +23,10 @@ interface SupabaseIntegrationPanelProps {
 
 const SupabaseIntegrationPanel = ({ projectId }: SupabaseIntegrationPanelProps) => {
   const { status, isLoading, refresh } = useSupabaseStatus();
+  const { projects } = useProjects();
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const project = projects?.find(p => p.id === projectId);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -31,6 +39,10 @@ const SupabaseIntegrationPanel = ({ projectId }: SupabaseIntegrationPanelProps) 
       return <Badge variant="secondary">Checking...</Badge>;
     }
     
+    if (project?.uses_custom_backend) {
+      return <Badge className="bg-purple-100 text-purple-700">Custom Backend</Badge>;
+    }
+    
     switch (status.connectionHealth) {
       case 'healthy':
         return <Badge className="bg-green-100 text-green-700">Connected</Badge>;
@@ -41,7 +53,19 @@ const SupabaseIntegrationPanel = ({ projectId }: SupabaseIntegrationPanelProps) 
     }
   };
 
-  if (!status.isConnected && !isLoading) {
+  if (!project) {
+    return (
+      <div className="p-6">
+        <Alert>
+          <AlertDescription>
+            Project not found. Please make sure you have access to this project.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (!status.isConnected && !isLoading && !project.uses_custom_backend) {
     return (
       <div className="p-6 space-y-6">
         <Card>
@@ -82,9 +106,21 @@ const SupabaseIntegrationPanel = ({ projectId }: SupabaseIntegrationPanelProps) 
             </p>
           </CardContent>
         </Card>
+        
+        {/* Always show backend config option */}
+        <ProjectBackendConfig project={project} />
       </div>
     );
   }
+
+  const currentStatus = project.uses_custom_backend 
+    ? { 
+        ...status, 
+        projectId: project.supabase_project_url ? 
+          project.supabase_project_url.split('//')[1]?.split('.')[0] : 'custom',
+        connectionHealth: project.backend_status === 'connected' ? 'healthy' as const : 'disconnected' as const
+      }
+    : status;
 
   return (
     <div className="p-6 space-y-6">
@@ -98,7 +134,10 @@ const SupabaseIntegrationPanel = ({ projectId }: SupabaseIntegrationPanelProps) 
                 Supabase Integration
               </CardTitle>
               <CardDescription>
-                Project ID: {status.projectId}
+                {project.uses_custom_backend 
+                  ? `Custom Backend: ${project.supabase_project_url || 'Not configured'}`
+                  : `Platform Backend: ${currentStatus.projectId}`
+                }
               </CardDescription>
             </div>
             <div className="flex items-center gap-3">
@@ -119,42 +158,47 @@ const SupabaseIntegrationPanel = ({ projectId }: SupabaseIntegrationPanelProps) 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center p-3 bg-blue-50 rounded-lg">
               <Database className="h-6 w-6 mx-auto text-blue-600 mb-2" />
-              <div className="text-lg font-bold text-blue-900">{status.metrics.totalTables}</div>
+              <div className="text-lg font-bold text-blue-900">{currentStatus.metrics.totalTables}</div>
               <div className="text-xs text-blue-700">Tables</div>
             </div>
             <div className="text-center p-3 bg-green-50 rounded-lg">
               <Database className="h-6 w-6 mx-auto text-green-600 mb-2" />
-              <div className="text-lg font-bold text-green-900">{status.metrics.totalFunctions}</div>
+              <div className="text-lg font-bold text-green-900">{currentStatus.metrics.totalFunctions}</div>
               <div className="text-xs text-green-700">Functions</div>
             </div>
             <div className="text-center p-3 bg-purple-50 rounded-lg">
               <Database className="h-6 w-6 mx-auto text-purple-600 mb-2" />
-              <div className="text-lg font-bold text-purple-900">{status.metrics.activeConnections}</div>
+              <div className="text-lg font-bold text-purple-900">{currentStatus.metrics.activeConnections}</div>
               <div className="text-xs text-purple-700">Connections</div>
             </div>
             <div className="text-center p-3 bg-orange-50 rounded-lg">
               <Database className="h-6 w-6 mx-auto text-orange-600 mb-2" />
-              <div className="text-lg font-bold text-orange-900">{status.metrics.storageUsed}</div>
+              <div className="text-lg font-bold text-orange-900">{currentStatus.metrics.storageUsed}</div>
               <div className="text-xs text-orange-700">Storage</div>
             </div>
           </div>
           
-          {status.lastChecked && (
+          {currentStatus.lastChecked && (
             <p className="text-xs text-gray-600 mt-4">
-              Last updated: {status.lastChecked.toLocaleTimeString()}
+              Last updated: {currentStatus.lastChecked.toLocaleTimeString()}
             </p>
           )}
         </CardContent>
       </Card>
 
       {/* Supabase Services Tabs */}
-      <Tabs defaultValue="database" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="config" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="config">Config</TabsTrigger>
           <TabsTrigger value="database">Database</TabsTrigger>
           <TabsTrigger value="auth">Authentication</TabsTrigger>
           <TabsTrigger value="storage">Storage</TabsTrigger>
           <TabsTrigger value="functions">Functions</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="config">
+          <ProjectBackendConfig project={project} />
+        </TabsContent>
 
         <TabsContent value="database">
           <SupabaseDatabaseSchema />

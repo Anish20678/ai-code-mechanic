@@ -297,6 +297,62 @@ export type Database = {
           },
         ]
       }
+      backend_migrations: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          migration_log: string | null
+          migration_type: string
+          progress_percentage: number | null
+          project_id: string
+          source_backend: Json | null
+          started_at: string | null
+          status: string
+          target_backend: Json | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          migration_log?: string | null
+          migration_type: string
+          progress_percentage?: number | null
+          project_id: string
+          source_backend?: Json | null
+          started_at?: string | null
+          status?: string
+          target_backend?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          migration_log?: string | null
+          migration_type?: string
+          progress_percentage?: number | null
+          project_id?: string
+          source_backend?: Json | null
+          started_at?: string | null
+          status?: string
+          target_backend?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backend_migrations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       build_jobs: {
         Row: {
           artifact_url: string | null
@@ -603,6 +659,47 @@ export type Database = {
           },
         ]
       }
+      project_backend_health: {
+        Row: {
+          connection_status: string
+          created_at: string
+          error_message: string | null
+          id: string
+          last_check: string
+          metrics: Json | null
+          project_id: string
+          response_time_ms: number | null
+        }
+        Insert: {
+          connection_status: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_check?: string
+          metrics?: Json | null
+          project_id: string
+          response_time_ms?: number | null
+        }
+        Update: {
+          connection_status?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_check?: string
+          metrics?: Json | null
+          project_id?: string
+          response_time_ms?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_backend_health_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_integrations: {
         Row: {
           config: Json
@@ -682,43 +779,61 @@ export type Database = {
       }
       projects: {
         Row: {
+          backend_status: string | null
           created_at: string
           deleted_at: string | null
           deleted_by: string | null
           deployment_url: string | null
           description: string | null
           id: string
+          last_backend_check: string | null
           name: string
           repository_url: string | null
           status: Database["public"]["Enums"]["project_status"]
+          supabase_anon_key: string | null
+          supabase_project_url: string | null
+          supabase_service_key_encrypted: string | null
           updated_at: string
           user_id: string
+          uses_custom_backend: boolean
         }
         Insert: {
+          backend_status?: string | null
           created_at?: string
           deleted_at?: string | null
           deleted_by?: string | null
           deployment_url?: string | null
           description?: string | null
           id?: string
+          last_backend_check?: string | null
           name: string
           repository_url?: string | null
           status?: Database["public"]["Enums"]["project_status"]
+          supabase_anon_key?: string | null
+          supabase_project_url?: string | null
+          supabase_service_key_encrypted?: string | null
           updated_at?: string
           user_id: string
+          uses_custom_backend?: boolean
         }
         Update: {
+          backend_status?: string | null
           created_at?: string
           deleted_at?: string | null
           deleted_by?: string | null
           deployment_url?: string | null
           description?: string | null
           id?: string
+          last_backend_check?: string | null
           name?: string
           repository_url?: string | null
           status?: Database["public"]["Enums"]["project_status"]
+          supabase_anon_key?: string | null
+          supabase_project_url?: string | null
+          supabase_service_key_encrypted?: string | null
           updated_at?: string
           user_id?: string
+          uses_custom_backend?: boolean
         }
         Relationships: []
       }
