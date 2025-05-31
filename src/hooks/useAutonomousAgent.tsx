@@ -1,7 +1,7 @@
-
 import { useState } from 'react';
 import { useCodeFiles } from './useCodeFiles';
 import { useToast } from '@/components/ui/use-toast';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface AutonomousTask {
@@ -30,12 +30,13 @@ export const useAutonomousAgent = () => {
   const [currentTask, setCurrentTask] = useState<AutonomousTask | null>(null);
   const [tasks, setTasks] = useState<AutonomousTask[]>([]);
   const { toast } = useToast();
+  const { handleError, handleAsyncOperation } = useErrorHandler();
 
   const executeAutonomousTask = async (projectId: string, task: AutonomousTask, operation?: string) => {
     setIsRunning(true);
     setCurrentTask(task);
     
-    try {
+    const result = await handleAsyncOperation(async () => {
       // Update task status
       const updatedTask = { 
         ...task, 
@@ -89,25 +90,22 @@ export const useAutonomousAgent = () => {
       });
 
       return data;
-    } catch (error: any) {
+    }, 'Failed to execute autonomous task', 'AutonomousAgent.executeTask');
+
+    if (!result) {
+      // Handle failure case
       const failedTask = { 
         ...task, 
         status: 'failed' as const, 
-        result: error.message,
+        result: 'Task execution failed',
         timestamp: new Date().toISOString()
       };
       setTasks(prev => prev.map(t => t.id === task.id ? failedTask : t));
       setCurrentTask(null);
-
-      toast({
-        title: "Task Failed",
-        description: error.message || "Failed to complete autonomous task",
-        variant: "destructive",
-      });
-      throw error;
-    } finally {
-      setIsRunning(false);
     }
+
+    setIsRunning(false);
+    return result;
   };
 
   const analyzeProject = async (projectId: string) => {

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useMessages } from '@/hooks/useMessages';
 import { useUnifiedAIAssistant } from '@/hooks/useUnifiedAIAssistant';
 import { useCodeFiles } from '@/hooks/useCodeFiles';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 import SmartMessageBubble from '@/components/SmartMessageBubble';
 import ExecutionStatusCard from '@/components/ExecutionStatusCard';
 import { formatDistanceToNow } from 'date-fns';
@@ -31,6 +32,7 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
   const { messages, isLoading } = useMessages(conversationId);
   const { sendUnifiedMessage, isLoading: aiLoading } = useUnifiedAIAssistant();
   const { codeFiles } = useCodeFiles(projectId);
+  const { handleAsyncOperation } = useErrorHandler();
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -40,13 +42,11 @@ const SimplifiedAIAssistant = ({ conversationId, projectId, onOpenSettings }: Si
     setInputValue('');
     setIsExecuting(true);
 
-    try {
+    await handleAsyncOperation(async () => {
       await sendUnifiedMessage(message, conversationId, codeFiles, !executeMode);
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    } finally {
-      setIsExecuting(false);
-    }
+    }, 'Failed to send message', 'SimplifiedAIAssistant.handleSendMessage');
+
+    setIsExecuting(false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {

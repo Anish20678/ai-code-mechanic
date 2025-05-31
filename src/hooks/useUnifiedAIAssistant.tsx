@@ -1,13 +1,14 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { useAIModels } from '@/hooks/useAIModels';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 export const useUnifiedAIAssistant = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { getDefaultModel } = useAIModels();
+  const { handleError } = useErrorHandler();
 
   const sendUnifiedMessage = async (
     message: string, 
@@ -76,11 +77,8 @@ export const useUnifiedAIAssistant = () => {
       
       const errorMessage = error.message || "Failed to get AI response";
       
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      // Use error handler instead of direct toast
+      handleError(errorMessage, 'UnifiedAIAssistant.sendUnifiedMessage');
       
       throw new Error(errorMessage);
     } finally {
