@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useCodeFiles } from './useCodeFiles';
 import { useToast } from '@/components/ui/use-toast';
@@ -30,13 +31,13 @@ export const useAutonomousAgent = () => {
   const [currentTask, setCurrentTask] = useState<AutonomousTask | null>(null);
   const [tasks, setTasks] = useState<AutonomousTask[]>([]);
   const { toast } = useToast();
-  const { handleError, handleAsyncOperation } = useErrorHandler();
+  const { handleError } = useErrorHandler();
 
   const executeAutonomousTask = async (projectId: string, task: AutonomousTask, operation?: string) => {
     setIsRunning(true);
     setCurrentTask(task);
     
-    const result = await handleAsyncOperation(async () => {
+    try {
       // Update task status
       const updatedTask = { 
         ...task, 
@@ -90,22 +91,27 @@ export const useAutonomousAgent = () => {
       });
 
       return data;
-    }, 'Failed to execute autonomous task', 'AutonomousAgent.executeTask');
-
-    if (!result) {
+    } catch (error: any) {
+      console.error('=== AI Assistant error ===', error);
+      
+      const errorMessage = error.message || "Failed to execute autonomous task";
+      
+      handleError(errorMessage, 'AutonomousAgent.executeTask');
+      
       // Handle failure case
       const failedTask = { 
         ...task, 
         status: 'failed' as const, 
-        result: 'Task execution failed',
+        result: errorMessage,
         timestamp: new Date().toISOString()
       };
       setTasks(prev => prev.map(t => t.id === task.id ? failedTask : t));
       setCurrentTask(null);
+      
+      throw error;
+    } finally {
+      setIsRunning(false);
     }
-
-    setIsRunning(false);
-    return result;
   };
 
   const analyzeProject = async (projectId: string) => {
