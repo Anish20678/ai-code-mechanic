@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { FileText, MessageSquare, Bot, Rocket, Settings, Monitor, Play, ArrowLeft, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';

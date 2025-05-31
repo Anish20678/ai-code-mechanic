@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { supabase } from '@/integrations/supabase/client';
 
 interface TableInfo {
   table_name: string;
@@ -22,15 +21,6 @@ const SupabaseDatabaseSchema = () => {
   useEffect(() => {
     const fetchDatabaseSchema = async () => {
       try {
-        // Get all tables with basic info
-        const { data: tablesData, error } = await supabase
-          .from('information_schema.tables')
-          .select('table_name')
-          .eq('table_schema', 'public')
-          .order('table_name');
-
-        if (error) throw error;
-
         // For demo purposes, we'll use the known tables from the schema
         const knownTables: TableInfo[] = [
           { table_name: 'projects', column_count: 9, row_count: 0, has_rls: false, created_at: '2024-01-01' },
