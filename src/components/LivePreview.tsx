@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Monitor, RefreshCw, ExternalLink, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,9 +16,9 @@ const LivePreview = ({ projectId }: LivePreviewProps) => {
   const [error, setError] = useState<string | null>(null);
 
   const { liveUrl, isDeploying } = useDeployment(projectId);
-  const { builds } = useBuildSystem(projectId);
+  const { buildJobs } = useBuildSystem(projectId);
 
-  const latestBuild = builds?.[0];
+  const latestBuild = buildJobs?.[0];
   const hasSuccessfulBuild = latestBuild?.status === 'success';
 
   useEffect(() => {

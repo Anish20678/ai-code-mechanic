@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { File, Folder, FolderOpen, Plus, Search, MoreVertical, FileText, Image, Code, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,9 +13,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { useCodeFiles } from '@/hooks/useCodeFiles';
 import { useToast } from '@/hooks/use-toast';
-import type { Database } from '@/integrations/supabase/types';
+import type { Database as DatabaseType } from '@/integrations/supabase/types';
 
-type CodeFile = Database['public']['Tables']['code_files']['Row'];
+type CodeFile = DatabaseType['public']['Tables']['code_files']['Row'];
 
 interface EnhancedFileExplorerProps {
   projectId: string;
@@ -31,10 +30,10 @@ const EnhancedFileExplorer = ({ projectId, selectedFile, onFileSelect }: Enhance
   const [newFileName, setNewFileName] = useState('');
   const [newFileType, setNewFileType] = useState('component');
   
-  const { files, createFile, deleteFile } = useCodeFiles(projectId);
+  const { codeFiles, createCodeFile, deleteCodeFile } = useCodeFiles(projectId);
   const { toast } = useToast();
 
-  const fileTree = buildFileTree(files || []);
+  const fileTree = buildFileTree(codeFiles || []);
   const filteredTree = filterTree(fileTree, searchTerm);
 
   const handleCreateFile = async () => {
@@ -47,7 +46,7 @@ const EnhancedFileExplorer = ({ projectId, selectedFile, onFileSelect }: Enhance
     const template = getFileTemplate(newFileType, fileName);
 
     try {
-      await createFile.mutateAsync({
+      await createCodeFile.mutateAsync({
         project_id: projectId,
         file_path: filePath,
         content: template,
@@ -72,7 +71,7 @@ const EnhancedFileExplorer = ({ projectId, selectedFile, onFileSelect }: Enhance
   const handleDeleteFile = async (file: CodeFile) => {
     if (confirm(`Are you sure you want to delete ${file.file_path}?`)) {
       try {
-        await deleteFile.mutateAsync(file.id);
+        await deleteCodeFile.mutateAsync(file.id);
         toast({
           title: "File deleted",
           description: `${file.file_path} has been deleted.`,
