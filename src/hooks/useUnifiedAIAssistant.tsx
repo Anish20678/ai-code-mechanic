@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -9,6 +10,27 @@ export const useUnifiedAIAssistant = () => {
   const { toast } = useToast();
   const { getDefaultModel } = useAIModels();
   const { handleError } = useErrorHandler();
+
+  const fetchConversationHistory = async (conversationId: string) => {
+    try {
+      const { data: messages, error } = await supabase
+        .from('messages')
+        .select('role, content, created_at')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
+        .limit(10); // Get last 10 messages for context
+
+      if (error) {
+        console.error('Error fetching conversation history:', error);
+        return [];
+      }
+
+      return messages || [];
+    } catch (error) {
+      console.error('Failed to fetch conversation history:', error);
+      return [];
+    }
+  };
 
   const sendUnifiedMessage = async (
     message: string, 
@@ -38,40 +60,85 @@ export const useUnifiedAIAssistant = () => {
         throw new Error(`Failed to store message: ${userMessageError.message}`);
       }
 
+      // Fetch conversation history for context
+      const conversationHistory = await fetchConversationHistory(conversationId);
+
       const defaultModel = getDefaultModel();
       const modelId = defaultModel?.id || 'gpt-4o';
       
-      // Determine the appropriate mode and prompt
-      const mode = isChatMode ? 'chat' : 'execute';
-      const systemContext = isChatMode
-        ? `You are a helpful AI coding assistant. Provide clear, concise guidance and explanations. Focus on helping the user understand concepts and solve problems.`
-        : `You are an AI code executor. You can create, modify, and delete files in the project. Execute commands immediately by making necessary code changes. Be direct and efficient.`;
-
-      const { data, error } = await supabase.functions.invoke('ai-coding-assistant', {
-        body: {
-          message: `${systemContext}\n\nUser request: ${message}`,
-          conversationId,
-          projectFiles,
-          modelId,
-          modelName: defaultModel?.model_name || 'gpt-4o',
-          mode
-        }
-      });
-
-      if (error) {
-        console.error('AI function error:', error);
-        throw new Error(`AI service error: ${error.message || 'Unknown error'}`);
-      }
-
-      // Show success toast for execute mode
+      // In execute mode, use the ai-file-executor for actual code changes
       if (!isChatMode) {
+        console.log('Execute mode: Using ai-file-executor for code changes');
+        
+        // Create execution session for tracking
+        const { data: sessionData, error: sessionError } = await supabase
+          .from('execution_sessions')
+          .insert({
+            conversation_id: conversationId,
+            project_id: projectFiles?.[0]?.project_id || '',
+            execution_type: 'unified_execute',
+            total_steps: 3,
+            status: 'running'
+          })
+          .select()
+          .single();
+
+        if (sessionError) {
+          console.error('Error creating execution session:', sessionError);
+        }
+
+        const sessionId = sessionData?.id || `unified_${Date.now()}`;
+
+        // Call ai-file-executor for code execution
+        const { data: executeData, error: executeError } = await supabase.functions.invoke('ai-file-executor', {
+          body: {
+            prompt: `${message}\n\nConversation Context:\n${conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n')}`,
+            projectId: projectFiles?.[0]?.project_id || '',
+            sessionId,
+            conversationId,
+            existingFiles: projectFiles,
+            mode: 'execute'
+          }
+        });
+
+        if (executeError) {
+          console.error('AI file executor error:', executeError);
+          throw new Error(`Code execution error: ${executeError.message || 'Unknown error'}`);
+        }
+
         toast({
           title: "Code Executed",
           description: "AI has made changes to your code",
         });
-      }
 
-      return data.response;
+        return executeData.response;
+      } else {
+        // Chat mode: use the regular ai-coding-assistant
+        console.log('Chat mode: Using ai-coding-assistant for guidance');
+        
+        const systemContext = `You are a helpful AI coding assistant. Provide clear, concise guidance and explanations. Focus on helping the user understand concepts and solve problems.
+
+Conversation History:
+${conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n')}`;
+
+        const { data, error } = await supabase.functions.invoke('ai-coding-assistant', {
+          body: {
+            message: `${systemContext}\n\nCurrent request: ${message}`,
+            conversationId,
+            projectFiles,
+            modelId,
+            modelName: defaultModel?.model_name || 'gpt-4o',
+            mode: 'chat'
+          }
+        });
+
+        if (error) {
+          console.error('AI function error:', error);
+          throw new Error(`AI service error: ${error.message || 'Unknown error'}`);
+        }
+
+        return data.response;
+      }
     } catch (error: any) {
       console.error('AI Assistant error:', error);
       

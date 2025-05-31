@@ -116,18 +116,20 @@ async function generateAIResponse(prompt: string, existingFiles: any[], mode: st
   }
 
   const systemPrompt = mode === 'execute' 
-    ? `You are an AI code executor. Analyze the user's request and provide specific file operations to implement their requirements.
+    ? `You are an AI code executor specialized in React/TypeScript development. You MUST analyze the user's request and provide specific file operations to implement their requirements.
+
+CRITICAL: You are in EXECUTE MODE. You must make actual code changes based on the user's request.
 
 Context:
 - Tech stack: React, TypeScript, Tailwind CSS, Supabase
 - Existing files: ${JSON.stringify(existingFiles, null, 2)}
 
-IMPORTANT: Respond with a JSON object containing:
+IMPORTANT: You MUST respond with a JSON object containing:
 1. "response": A brief description of what you're implementing
 2. "operations": An array of file operations with the following structure:
    - type: "create" | "update" | "delete" | "rename"
    - filePath: string (path to the file)
-   - content: string (for create/update operations)
+   - content: string (for create/update operations - MUST contain complete, valid code)
    - newPath: string (for rename operations)
 
 Example response:
@@ -140,7 +142,9 @@ Example response:
       "content": "import React from 'react';\\n\\nconst UserProfile = () => {\\n  return <div>User Profile</div>;\\n};\\n\\nexport default UserProfile;"
     }
   ]
-}`
+}
+
+You must provide actual file operations that implement the user's request. Do not just provide explanations.`
     : `You are an AI code analyzer. Analyze the provided code and give insights, suggestions, and explanations without making changes.
 
 Context:
@@ -182,9 +186,10 @@ Provide detailed analysis and suggestions in a conversational format.`;
         operations: parsed.operations || []
       };
     } catch (error) {
-      // Fallback if AI doesn't return proper JSON
+      console.error('Failed to parse AI response as JSON:', aiResponse);
+      // Fallback: try to extract file operations from text
       return {
-        response: aiResponse,
+        response: 'AI provided text response instead of structured operations',
         operations: []
       };
     }
@@ -204,9 +209,9 @@ serve(async (req) => {
   try {
     const { prompt, projectId, sessionId, conversationId, existingFiles = [], mode = 'execute' }: ExecutionRequest = await req.json();
     
-    console.log('AI File Executor called:', { prompt, projectId, sessionId, mode });
+    console.log('AI File Executor called:', { prompt: prompt.substring(0, 100) + '...', projectId, sessionId, mode });
 
-    await logExecutionStep(sessionId, 0, `Starting ${mode} mode execution for prompt: ${prompt}`, 'info');
+    await logExecutionStep(sessionId, 0, `Starting ${mode} mode execution`, 'info');
 
     // Generate AI response and file operations
     const { response, operations } = await generateAIResponse(prompt, existingFiles, mode);
@@ -214,6 +219,8 @@ serve(async (req) => {
     let executionResults: string[] = [];
 
     if (mode === 'execute' && operations.length > 0) {
+      console.log(`Executing ${operations.length} file operations`);
+      
       // Update total steps based on operations
       await supabase.from('execution_sessions').update({
         total_steps: operations.length
@@ -237,6 +244,9 @@ serve(async (req) => {
           });
         }
       }
+    } else if (mode === 'execute' && operations.length === 0) {
+      console.log('Execute mode but no operations generated');
+      await updateSessionProgress(sessionId, 1, 'completed');
     } else {
       // For analyze mode, just mark as completed
       await updateSessionProgress(sessionId, 1, 'completed');
