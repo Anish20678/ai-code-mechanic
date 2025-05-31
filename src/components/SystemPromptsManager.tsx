@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Plus, Edit, Trash2, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -28,7 +27,7 @@ const SystemPromptsManager = () => {
   const { prompts, isLoading, createPrompt, updatePrompt } = useSystemPrompts();
   const { toast } = useToast();
 
-  const categories: PromptCategory[] = ['coding', 'debugging', 'review', 'documentation', 'testing'];
+  const categories: PromptCategory[] = ['system', 'coding', 'analysis', 'debugging', 'optimization'];
 
   const handleCreate = async () => {
     try {
