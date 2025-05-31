@@ -21,7 +21,12 @@ serve(async (req) => {
   try {
     const { message, conversationId, projectFiles, modelId = 'gpt-4o', modelName = 'gpt-4o', mode = 'chat' } = await req.json();
     
-    console.log('AI Coding Assistant called with:', { message, conversationId, mode });
+    console.log('AI Coding Assistant called with:', { 
+      messageLength: message?.length, 
+      conversationId, 
+      mode, 
+      filesCount: projectFiles?.length 
+    });
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
@@ -32,7 +37,6 @@ serve(async (req) => {
     let systemPrompt = '';
     
     try {
-      // Map mode to the correct category enum value
       let category = 'coding'; // default to coding
       
       switch (mode) {
@@ -59,37 +63,39 @@ serve(async (req) => {
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (promptError) {
-        console.log('No custom system prompt found, using default');
-      } else {
+      if (!promptError && promptData) {
         systemPrompt = promptData.content;
-        console.log('Using custom system prompt from database');
+        console.log('Using custom system prompt from database for category:', category);
+      } else {
+        console.log('No custom system prompt found, using default for mode:', mode);
       }
     } catch (error) {
       console.log('Error fetching system prompt, using default:', error);
     }
 
-    // Fallback to hardcoded prompts if no database prompt found
+    // Enhanced fallback prompts for better execute mode behavior
     if (!systemPrompt) {
       switch (mode) {
         case 'execute':
-          systemPrompt = `You are an AI code executor specialized in React/TypeScript development. You execute commands immediately by providing specific implementation instructions.
+          systemPrompt = `You are an AI code executor specialized in React/TypeScript development. You provide guidance and suggestions for code implementation.
+
+IMPORTANT: You are in GUIDANCE mode - provide clear instructions and code examples, but do not make direct file changes.
 
 Current project context:
 - Tech stack: React, TypeScript, Tailwind CSS, Supabase
-- Available files: ${projectFiles ? JSON.stringify(projectFiles, null, 2) : 'No files provided'}
+- Available files: ${projectFiles ? JSON.stringify(projectFiles.slice(0, 5), null, 2) : 'No files provided'}
 
 Guidelines:
-1. Provide immediate, actionable implementation steps
+1. Provide clear, actionable implementation guidance
 2. Include complete code examples ready for implementation
-3. Focus on specific file changes and operations
+3. Suggest specific file names and structure
 4. Ensure all code follows React/TypeScript best practices
 5. Use Tailwind CSS for styling
 6. Integrate with existing Supabase setup when needed
 
-Be direct and efficient in your responses. Focus on execution over explanation.`;
+Be direct and practical in your responses. Focus on providing clear implementation steps.`;
           break;
         
         case 'chat':
@@ -97,7 +103,7 @@ Be direct and efficient in your responses. Focus on execution over explanation.`
 
 Current project context:
 - Tech stack: React, TypeScript, Tailwind CSS, Supabase
-- Available files: ${projectFiles ? JSON.stringify(projectFiles, null, 2) : 'No files provided'}
+- Available files: ${projectFiles ? JSON.stringify(projectFiles.slice(0, 5), null, 2) : 'No files provided'}
 
 Guidelines:
 1. Provide clear, practical coding solutions
@@ -115,7 +121,7 @@ Be conversational and educational in your responses.`;
 
 Current project context:
 - Tech stack: React, TypeScript, Tailwind CSS, Supabase
-- Available files: ${projectFiles ? JSON.stringify(projectFiles, null, 2) : 'No files provided'}
+- Available files: ${projectFiles ? JSON.stringify(projectFiles.slice(0, 5), null, 2) : 'No files provided'}
 
 Guidelines:
 1. Analyze code structure and architecture
@@ -128,30 +134,12 @@ Guidelines:
 Focus on thorough analysis and constructive feedback.`;
           break;
         
-        case 'optimize':
-          systemPrompt = `You are an AI code optimizer specialized in React/TypeScript development. Focus on performance and code quality improvements.
-
-Current project context:
-- Tech stack: React, TypeScript, Tailwind CSS, Supabase
-- Available files: ${projectFiles ? JSON.stringify(projectFiles, null, 2) : 'No files provided'}
-
-Guidelines:
-1. Optimize for performance and efficiency
-2. Improve code readability and maintainability
-3. Reduce bundle size where possible
-4. Implement proper error handling
-5. Follow React performance best practices
-6. Suggest modern patterns and approaches
-
-Provide optimized code with explanations of improvements.`;
-          break;
-        
         default:
           systemPrompt = `You are an expert AI coding assistant specialized in web development. You help users write, debug, and improve their code.
 
 Current project context:
 - Tech stack: React, TypeScript, Tailwind CSS, Supabase
-- Available files: ${projectFiles ? JSON.stringify(projectFiles, null, 2) : 'No files provided'}
+- Available files: ${projectFiles ? JSON.stringify(projectFiles.slice(0, 5), null, 2) : 'No files provided'}
 
 Guidelines:
 1. Provide clear, practical coding solutions
@@ -207,9 +195,11 @@ Be concise but thorough in your responses.`;
         });
 
       if (dbError) {
-        console.error('Database error:', dbError);
+        console.error('Database error storing message:', dbError);
       }
     }
+
+    console.log('AI coding assistant completed successfully');
 
     return new Response(JSON.stringify({ response: aiResponse }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -217,7 +207,10 @@ Be concise but thorough in your responses.`;
 
   } catch (error) {
     console.error('Error in AI coding assistant:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      details: error.stack 
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

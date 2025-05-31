@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -18,7 +17,7 @@ export const useUnifiedAIAssistant = () => {
         .select('role, content, created_at')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
-        .limit(10); // Get last 10 messages for context
+        .limit(10);
 
       if (error) {
         console.error('Error fetching conversation history:', error);
@@ -40,7 +39,9 @@ export const useUnifiedAIAssistant = () => {
   ) => {
     setIsLoading(true);
     try {
-      // First, create and store the user message immediately
+      console.log('sendUnifiedMessage called:', { message: message.substring(0, 100), conversationId, isChatMode, filesCount: projectFiles?.length });
+
+      // Store user message immediately
       const { data: userMessage, error: userMessageError } = await supabase
         .from('messages')
         .insert({
@@ -59,6 +60,8 @@ export const useUnifiedAIAssistant = () => {
         console.error('Error storing user message:', userMessageError);
         throw new Error(`Failed to store message: ${userMessageError.message}`);
       }
+
+      console.log('User message stored successfully:', userMessage.id);
 
       // Fetch conversation history for context
       const conversationHistory = await fetchConversationHistory(conversationId);
@@ -85,18 +88,32 @@ export const useUnifiedAIAssistant = () => {
 
         if (sessionError) {
           console.error('Error creating execution session:', sessionError);
+          throw new Error(`Failed to create execution session: ${sessionError.message}`);
         }
 
         const sessionId = sessionData?.id || `unified_${Date.now()}`;
+        console.log('Execution session created:', sessionId);
+
+        // Prepare enhanced context for the AI
+        const contextualPrompt = `User Request: ${message}
+
+Project Context:
+- Total Files: ${projectFiles?.length || 0}
+- File Types: ${projectFiles?.map(f => f.file_path.split('.').pop()).filter((ext, i, arr) => arr.indexOf(ext) === i).join(', ') || 'none'}
+
+Recent Conversation:
+${conversationHistory.slice(-3).map(m => `${m.role}: ${m.content.substring(0, 200)}`).join('\n')}
+
+Please implement the user's request by creating or modifying the necessary files.`;
 
         // Call ai-file-executor for code execution
         const { data: executeData, error: executeError } = await supabase.functions.invoke('ai-file-executor', {
           body: {
-            prompt: `${message}\n\nConversation Context:\n${conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n')}`,
+            prompt: contextualPrompt,
             projectId: projectFiles?.[0]?.project_id || '',
             sessionId,
             conversationId,
-            existingFiles: projectFiles,
+            existingFiles: projectFiles?.slice(0, 20) || [], // Limit context size
             mode: 'execute'
           }
         });
@@ -106,9 +123,11 @@ export const useUnifiedAIAssistant = () => {
           throw new Error(`Code execution error: ${executeError.message || 'Unknown error'}`);
         }
 
+        console.log('AI file executor completed:', executeData);
+
         toast({
           title: "Code Executed",
-          description: "AI has made changes to your code",
+          description: `AI has made changes to your code. ${executeData.operations || 0} operations completed.`,
         });
 
         return executeData.response;
@@ -118,14 +137,25 @@ export const useUnifiedAIAssistant = () => {
         
         const systemContext = `You are a helpful AI coding assistant. Provide clear, concise guidance and explanations. Focus on helping the user understand concepts and solve problems.
 
-Conversation History:
-${conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n')}`;
+Current Project Context:
+- Tech Stack: React, TypeScript, Tailwind CSS, Supabase
+- Files Available: ${projectFiles?.length || 0} files
+- Recent Context: ${conversationHistory.slice(-2).map(m => `${m.role}: ${m.content.substring(0, 100)}`).join(' | ')}
+
+Guidelines:
+1. Provide practical coding solutions
+2. Explain your reasoning step by step
+3. Include code examples when helpful
+4. Suggest best practices and optimizations
+5. Help debug errors with specific solutions
+
+Be conversational and educational in your responses.`;
 
         const { data, error } = await supabase.functions.invoke('ai-coding-assistant', {
           body: {
-            message: `${systemContext}\n\nCurrent request: ${message}`,
+            message: `${systemContext}\n\nUser Request: ${message}`,
             conversationId,
-            projectFiles,
+            projectFiles: projectFiles?.slice(0, 10) || [],
             modelId,
             modelName: defaultModel?.model_name || 'gpt-4o',
             mode: 'chat'
@@ -133,10 +163,11 @@ ${conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n')}`;
         });
 
         if (error) {
-          console.error('AI function error:', error);
+          console.error('AI coding assistant error:', error);
           throw new Error(`AI service error: ${error.message || 'Unknown error'}`);
         }
 
+        console.log('AI coding assistant completed successfully');
         return data.response;
       }
     } catch (error: any) {
@@ -144,7 +175,6 @@ ${conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n')}`;
       
       const errorMessage = error.message || "Failed to get AI response";
       
-      // Use error handler instead of direct toast
       handleError(errorMessage, 'UnifiedAIAssistant.sendUnifiedMessage');
       
       throw new Error(errorMessage);

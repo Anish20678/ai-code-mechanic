@@ -30,22 +30,30 @@ interface ExecutionRequest {
 }
 
 async function logExecutionStep(sessionId: string, stepNumber: number, message: string, level: string = 'info', details?: any) {
-  await supabase.from('execution_logs').insert({
-    session_id: sessionId,
-    step_number: stepNumber,
-    message,
-    log_level: level,
-    details: details || {}
-  });
+  try {
+    await supabase.from('execution_logs').insert({
+      session_id: sessionId,
+      step_number: stepNumber,
+      message,
+      log_level: level,
+      details: details || {}
+    });
+  } catch (error) {
+    console.error('Failed to log execution step:', error);
+  }
 }
 
 async function updateSessionProgress(sessionId: string, completedSteps: number, status: string = 'running', errorMessage?: string) {
-  await supabase.from('execution_sessions').update({
-    completed_steps: completedSteps,
-    status,
-    error_message: errorMessage,
-    updated_at: new Date().toISOString()
-  }).eq('id', sessionId);
+  try {
+    await supabase.from('execution_sessions').update({
+      completed_steps: completedSteps,
+      status,
+      error_message: errorMessage,
+      updated_at: new Date().toISOString()
+    }).eq('id', sessionId);
+  } catch (error) {
+    console.error('Failed to update session progress:', error);
+  }
 }
 
 async function executeFileOperations(projectId: string, operations: FileOperation[], sessionId: string): Promise<string[]> {
@@ -115,89 +123,119 @@ async function generateAIResponse(prompt: string, existingFiles: any[], mode: st
     throw new Error('OpenAI API key not configured');
   }
 
+  // Enhanced system prompt for better execute mode behavior
   const systemPrompt = mode === 'execute' 
-    ? `You are an AI code executor specialized in React/TypeScript development. You MUST analyze the user's request and provide specific file operations to implement their requirements.
+    ? `You are an expert AI code executor specialized in React/TypeScript/Tailwind development. You MUST analyze the user's request and provide specific file operations to implement their requirements.
 
-CRITICAL: You are in EXECUTE MODE. You must make actual code changes based on the user's request.
+CRITICAL EXECUTION MODE RULES:
+1. You MUST respond with a valid JSON object containing "response" and "operations" fields
+2. You MUST provide actual file operations that implement the user's request
+3. DO NOT provide explanations or markdown - only executable operations
+4. Focus on creating complete, functional code
 
-Context:
-- Tech stack: React, TypeScript, Tailwind CSS, Supabase
-- Existing files: ${JSON.stringify(existingFiles, null, 2)}
+Tech Stack Context:
+- React 18 with TypeScript
+- Tailwind CSS for styling
+- Supabase for backend
+- Shadcn/ui components available
+- Existing files: ${JSON.stringify(existingFiles?.slice(0, 5) || [], null, 2)}
 
-IMPORTANT: You MUST respond with a JSON object containing:
-1. "response": A brief description of what you're implementing
-2. "operations": An array of file operations with the following structure:
-   - type: "create" | "update" | "delete" | "rename"
-   - filePath: string (path to the file)
-   - content: string (for create/update operations - MUST contain complete, valid code)
-   - newPath: string (for rename operations)
-
-Example response:
+Response Format (MANDATORY):
 {
-  "response": "Creating a new user profile component with form validation",
+  "response": "Brief description of what you're implementing",
   "operations": [
     {
-      "type": "create",
-      "filePath": "src/components/UserProfile.tsx",
-      "content": "import React from 'react';\\n\\nconst UserProfile = () => {\\n  return <div>User Profile</div>;\\n};\\n\\nexport default UserProfile;"
+      "type": "create|update|delete|rename",
+      "filePath": "path/to/file.tsx",
+      "content": "complete file content here"
     }
   ]
 }
 
-You must provide actual file operations that implement the user's request. Do not just provide explanations.`
+EXAMPLES OF VALID OPERATIONS:
+- Create dashboard components with proper TypeScript interfaces
+- Implement authentication flows
+- Add form validation and error handling
+- Create API integrations
+- Style with Tailwind CSS classes
+
+You must provide working, complete code in every operation. Do not use placeholders or TODO comments.`
     : `You are an AI code analyzer. Analyze the provided code and give insights, suggestions, and explanations without making changes.
 
 Context:
 - Tech stack: React, TypeScript, Tailwind CSS, Supabase
-- Existing files: ${JSON.stringify(existingFiles, null, 2)}
+- Existing files: ${JSON.stringify(existingFiles?.slice(0, 5) || [], null, 2)}
 
 Provide detailed analysis and suggestions in a conversational format.`;
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openAIApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: prompt }
-      ],
-      temperature: mode === 'execute' ? 0.3 : 0.7,
-      max_tokens: 4000,
-    }),
-  });
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt }
+        ],
+        temperature: mode === 'execute' ? 0.1 : 0.7,
+        max_tokens: 4000,
+      }),
+    });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(`OpenAI API error: ${error.error?.message || 'Unknown error'}`);
-  }
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`OpenAI API error: ${error.error?.message || 'Unknown error'}`);
+    }
 
-  const data = await response.json();
-  const aiResponse = data.choices[0].message.content;
+    const data = await response.json();
+    const aiResponse = data.choices[0].message.content;
 
-  if (mode === 'execute') {
-    try {
-      const parsed = JSON.parse(aiResponse);
+    if (mode === 'execute') {
+      try {
+        // Clean the response to ensure it's valid JSON
+        let cleanedResponse = aiResponse.trim();
+        
+        // Remove markdown code blocks if present
+        if (cleanedResponse.startsWith('```json')) {
+          cleanedResponse = cleanedResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        } else if (cleanedResponse.startsWith('```')) {
+          cleanedResponse = cleanedResponse.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        }
+
+        const parsed = JSON.parse(cleanedResponse);
+        
+        // Validate the response structure
+        if (!parsed.response || !Array.isArray(parsed.operations)) {
+          throw new Error('Invalid response structure');
+        }
+
+        return {
+          response: parsed.response || 'Executing code changes...',
+          operations: parsed.operations || []
+        };
+      } catch (parseError) {
+        console.error('Failed to parse AI response as JSON:', aiResponse);
+        console.error('Parse error:', parseError);
+        
+        // Fallback: try to extract operations from text format
+        return {
+          response: 'AI provided non-JSON response, attempting text extraction',
+          operations: []
+        };
+      }
+    } else {
       return {
-        response: parsed.response || 'Executing code changes...',
-        operations: parsed.operations || []
-      };
-    } catch (error) {
-      console.error('Failed to parse AI response as JSON:', aiResponse);
-      // Fallback: try to extract file operations from text
-      return {
-        response: 'AI provided text response instead of structured operations',
+        response: aiResponse,
         operations: []
       };
     }
-  } else {
-    return {
-      response: aiResponse,
-      operations: []
-    };
+  } catch (error) {
+    console.error('Error calling OpenAI API:', error);
+    throw error;
   }
 }
 
@@ -209,12 +247,28 @@ serve(async (req) => {
   try {
     const { prompt, projectId, sessionId, conversationId, existingFiles = [], mode = 'execute' }: ExecutionRequest = await req.json();
     
-    console.log('AI File Executor called:', { prompt: prompt.substring(0, 100) + '...', projectId, sessionId, mode });
+    console.log('AI File Executor called:', { 
+      prompt: prompt.substring(0, 200) + '...', 
+      projectId, 
+      sessionId, 
+      mode,
+      existingFilesCount: existingFiles.length 
+    });
 
-    await logExecutionStep(sessionId, 0, `Starting ${mode} mode execution`, 'info');
+    if (!sessionId) {
+      throw new Error('Session ID is required');
+    }
+
+    await logExecutionStep(sessionId, 0, `Starting ${mode} mode execution with prompt: ${prompt.substring(0, 100)}...`, 'info');
 
     // Generate AI response and file operations
     const { response, operations } = await generateAIResponse(prompt, existingFiles, mode);
+
+    console.log('AI Response generated:', { 
+      responseLength: response.length, 
+      operationsCount: operations.length,
+      operations: operations.map(op => ({ type: op.type, filePath: op.filePath }))
+    });
 
     let executionResults: string[] = [];
 
@@ -246,6 +300,7 @@ serve(async (req) => {
       }
     } else if (mode === 'execute' && operations.length === 0) {
       console.log('Execute mode but no operations generated');
+      await logExecutionStep(sessionId, 1, 'No file operations generated from AI response', 'warning');
       await updateSessionProgress(sessionId, 1, 'completed');
     } else {
       // For analyze mode, just mark as completed
@@ -260,8 +315,14 @@ serve(async (req) => {
       metadata: {
         execution_mode: mode,
         operations_count: operations.length,
-        execution_results: executionResults
+        execution_results: executionResults,
+        session_id: sessionId
       }
+    });
+
+    console.log('Execution completed successfully:', {
+      operationsExecuted: operations.length,
+      resultsCount: executionResults.length
     });
 
     return new Response(JSON.stringify({ 
@@ -278,11 +339,17 @@ serve(async (req) => {
     // Log error if we have sessionId
     const body = await req.json().catch(() => ({}));
     if (body.sessionId) {
-      await logExecutionStep(body.sessionId, -1, `Execution failed: ${error.message}`, 'error');
+      await logExecutionStep(body.sessionId, -1, `Execution failed: ${error.message}`, 'error', { 
+        errorStack: error.stack,
+        errorName: error.name 
+      });
       await updateSessionProgress(body.sessionId, 0, 'failed', error.message);
     }
 
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      details: error.stack 
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
