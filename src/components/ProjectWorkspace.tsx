@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { FileText, Bot, Rocket, Monitor, DatabaseIcon, FolderOpen, Settings as SettingsIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import SimplifiedAIAssistant from './SimplifiedAIAssistant';
+import UnifiedAIAssistant from './UnifiedAIAssistant';
 import FileExplorer from './FileExplorer';
 import BuildStatus from './BuildStatus';
 import DeploymentManager from './DeploymentManager';
@@ -132,10 +131,9 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
               ) : (
                 <div className="flex-1 flex flex-col min-h-0">
                   {activeConversation ? (
-                    <SimplifiedAIAssistant 
+                    <UnifiedAIAssistant 
                       conversationId={activeConversation.id}
                       projectId={project.id}
-                      onOpenSettings={handleOpenSettings}
                     />
                   ) : (
                     <div className="flex-1 flex items-center justify-center p-6">
