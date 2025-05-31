@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Settings, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,6 +15,7 @@ import { useToast } from '@/components/ui/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
 type AIModel = Database['public']['Tables']['ai_models']['Row'];
+type PromptCategory = Database['public']['Enums']['prompt_category'];
 
 interface Message {
   id: string;
@@ -30,7 +30,7 @@ interface Message {
 interface EnhancedAIChatProps {
   projectId?: string;
   initialPrompt?: string;
-  category?: string;
+  category?: PromptCategory;
 }
 
 const EnhancedAIChat = ({ projectId, initialPrompt, category = 'coding' }: EnhancedAIChatProps) => {

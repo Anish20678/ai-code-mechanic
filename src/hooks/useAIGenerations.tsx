@@ -7,6 +7,17 @@ import type { Database } from '@/integrations/supabase/types';
 type AIGeneration = Database['public']['Tables']['ai_generations']['Row'];
 type AIGenerationInsert = Database['public']['Tables']['ai_generations']['Insert'];
 
+// Extended type to include joined ai_models data
+type AIGenerationWithModel = AIGeneration & {
+  ai_models: {
+    display_name: string;
+    provider: string;
+  } | null;
+  projects: {
+    name: string;
+  } | null;
+};
+
 export const useAIGenerations = (projectId?: string) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -30,7 +41,7 @@ export const useAIGenerations = (projectId?: string) => {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as AIGeneration[];
+      return data as AIGenerationWithModel[];
     },
   });
 

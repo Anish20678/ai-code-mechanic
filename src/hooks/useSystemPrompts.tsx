@@ -7,8 +7,9 @@ import type { Database } from '@/integrations/supabase/types';
 type SystemPrompt = Database['public']['Tables']['system_prompts']['Row'];
 type SystemPromptInsert = Database['public']['Tables']['system_prompts']['Insert'];
 type SystemPromptUpdate = Database['public']['Tables']['system_prompts']['Update'];
+type PromptCategory = Database['public']['Enums']['prompt_category'];
 
-export const useSystemPrompts = (category?: string) => {
+export const useSystemPrompts = (category?: PromptCategory) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -89,11 +90,11 @@ export const useSystemPrompts = (category?: string) => {
     },
   });
 
-  const getPromptByCategory = (cat: string) => {
+  const getPromptByCategory = (cat: PromptCategory) => {
     return prompts?.filter(prompt => prompt.category === cat) || [];
   };
 
-  const getDefaultPrompt = (cat: string) => {
+  const getDefaultPrompt = (cat: PromptCategory) => {
     return prompts?.find(prompt => prompt.category === cat && prompt.name.includes('default'));
   };
 
