@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { FileText, Bot, Rocket, Monitor, DatabaseIcon, FolderOpen, Settings as SettingsIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ import CodeEditor from './CodeEditor';
 import ErrorDisplay from './ErrorDisplay';
 import LivePreview from './LivePreview';
 import SupabaseIntegrationPanel from './SupabaseIntegrationPanel';
+import AITestButton from './AITestButton';
 import { useConversations } from '@/hooks/useConversations';
 import { useCodeFiles } from '@/hooks/useCodeFiles';
 import { useBuildSystem } from '@/hooks/useBuildSystem';

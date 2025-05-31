@@ -23,7 +23,7 @@ interface FileOperation {
 interface ExecutionRequest {
   prompt: string;
   projectId: string;
-  sessionId: string;
+  sessionId?: string;
   conversationId: string;
   existingFiles?: any[];
   mode: 'execute' | 'analyze';
@@ -150,7 +150,7 @@ MANDATORY Response Format (JSON ONLY):
     {
       "type": "create",
       "filePath": "src/components/ExampleComponent.tsx",
-      "content": "import React from 'react';\n\nconst ExampleComponent = () => {\n  return <div>Hello World</div>;\n};\n\nexport default ExampleComponent;"
+      "content": "import React from 'react';\\n\\nconst ExampleComponent = () => {\\n  return <div>Hello World</div>;\\n};\\n\\nexport default ExampleComponent;"
     }
   ]
 }
@@ -230,7 +230,7 @@ const GeneratedComponent = () => {
   return (
     <div className="p-4">
       <h2 className="text-lg font-semibold">Generated Component</h2>
-      <p className="text-gray-600">This component was created based on your request.</p>
+      <p className="text-gray-600">This component was created based on your request: ${prompt.substring(0, 100)}</p>
     </div>
   );
 };
@@ -271,11 +271,26 @@ serve(async (req) => {
     console.log('Existing files count:', existingFiles.length);
     console.log('Prompt preview:', prompt.substring(0, 200) + '...');
 
-    if (!sessionId) {
-      throw new Error('Session ID is required');
+    // Create session if not provided
+    let finalSessionId = sessionId;
+    if (!finalSessionId) {
+      const sessionData = await supabase.from('execution_sessions').insert({
+        conversation_id: conversationId,
+        project_id: projectId,
+        execution_type: 'file_execution',
+        total_steps: 3,
+        status: 'running'
+      }).select().single();
+      
+      if (sessionData.error) {
+        throw new Error(`Failed to create session: ${sessionData.error.message}`);
+      }
+      
+      finalSessionId = sessionData.data.id;
+      console.log('Created new session:', finalSessionId);
     }
 
-    await logExecutionStep(sessionId, 0, `Starting ${mode} mode execution`, 'info', { prompt: prompt.substring(0, 100) });
+    await logExecutionStep(finalSessionId, 0, `Starting ${mode} mode execution`, 'info', { prompt: prompt.substring(0, 100) });
 
     // Generate AI response and file operations
     const { response, operations } = await generateAIResponse(prompt, existingFiles, mode);
@@ -294,20 +309,20 @@ serve(async (req) => {
       // Update total steps based on operations
       await supabase.from('execution_sessions').update({
         total_steps: operations.length
-      }).eq('id', sessionId);
+      }).eq('id', finalSessionId);
 
       // Execute file operations
-      executionResults = await executeFileOperations(projectId, operations, sessionId);
+      executionResults = await executeFileOperations(projectId, operations, finalSessionId);
 
       // Mark session as completed
-      await updateSessionProgress(sessionId, operations.length, 'completed');
+      await updateSessionProgress(finalSessionId, operations.length, 'completed');
       console.log('=== File operations completed successfully ===');
       
       // Create execution artifacts
       for (const operation of operations) {
         if (operation.type === 'create' || operation.type === 'update') {
           await supabase.from('execution_artifacts').insert({
-            session_id: sessionId,
+            session_id: finalSessionId,
             artifact_type: 'code_file',
             file_path: operation.filePath,
             content: operation.content || '',
@@ -317,11 +332,11 @@ serve(async (req) => {
       }
     } else if (mode === 'execute' && operations.length === 0) {
       console.log('Execute mode but no operations generated');
-      await logExecutionStep(sessionId, 1, 'No file operations generated from AI response', 'warning');
-      await updateSessionProgress(sessionId, 1, 'completed');
+      await logExecutionStep(finalSessionId, 1, 'No file operations generated from AI response', 'warning');
+      await updateSessionProgress(finalSessionId, 1, 'completed');
     } else {
       // For analyze mode, just mark as completed
-      await updateSessionProgress(sessionId, 1, 'completed');
+      await updateSessionProgress(finalSessionId, 1, 'completed');
     }
 
     // Store the AI response as a message
@@ -333,19 +348,21 @@ serve(async (req) => {
         execution_mode: mode,
         operations_count: operations.length,
         execution_results: executionResults,
-        session_id: sessionId
+        session_id: finalSessionId
       }
     });
 
     console.log('=== Execution Summary ===');
     console.log('Operations executed:', operations.length);
     console.log('Results:', executionResults);
+    console.log('Session ID:', finalSessionId);
     console.log('=== End Summary ===');
 
     return new Response(JSON.stringify({ 
       response,
       operations: operations.length,
-      executionResults 
+      executionResults,
+      sessionId: finalSessionId
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

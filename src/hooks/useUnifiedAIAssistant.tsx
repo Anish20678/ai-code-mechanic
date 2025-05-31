@@ -39,6 +39,7 @@ export const useUnifiedAIAssistant = () => {
     isChatMode: boolean = true
   ) => {
     setIsLoading(true);
+    
     try {
       console.log('=== sendUnifiedMessage called ===');
       console.log('Message preview:', message.substring(0, 100));
@@ -75,44 +76,25 @@ export const useUnifiedAIAssistant = () => {
       if (!isChatMode) {
         console.log('=== EXECUTE MODE: Using ai-file-executor ===');
         
-        // Create execution session for tracking
-        const { data: sessionData, error: sessionError } = await supabase
-          .from('execution_sessions')
-          .insert({
-            conversation_id: conversationId,
-            project_id: projectFiles?.[0]?.project_id || 'default',
-            execution_type: 'unified_execute',
-            total_steps: 3,
-            status: 'running'
-          })
-          .select()
-          .single();
-
-        if (sessionError) {
-          console.error('Error creating execution session:', sessionError);
-          throw new Error(`Failed to create execution session: ${sessionError.message}`);
-        }
-
-        const sessionId = sessionData?.id || `unified_${Date.now()}`;
-        console.log('Execution session created:', sessionId);
-
+        const projectId = projectFiles?.[0]?.project_id || 'ef6b9fb7-eda5-4960-be37-43619286032b';
+        
         // Prepare enhanced context for the AI
         const contextualPrompt = `User Request: ${message}
 
 Project Context:
 - Total Files: ${projectFiles?.length || 0}
-- Project ID: ${projectFiles?.[0]?.project_id || 'default'}
+- Project ID: ${projectId}
 
 Please implement the user's request by creating or modifying the necessary files. Provide complete, working code that follows React/TypeScript best practices.`;
 
         console.log('Calling ai-file-executor with contextual prompt...');
+        console.log('Project ID being used:', projectId);
 
         // Call ai-file-executor for code execution
         const { data: executeData, error: executeError } = await supabase.functions.invoke('ai-file-executor', {
           body: {
             prompt: contextualPrompt,
-            projectId: projectFiles?.[0]?.project_id || 'default',
-            sessionId,
+            projectId: projectId,
             conversationId,
             existingFiles: projectFiles?.slice(0, 20) || [],
             mode: 'execute'
