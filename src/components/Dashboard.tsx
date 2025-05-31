@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Plus, Code, LogOut, User } from 'lucide-react';
+import { Plus, Code, LogOut, User, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -8,12 +8,24 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import ProjectCard from './ProjectCard';
 import CreateProjectDialog from './CreateProjectDialog';
 import HeroSection from './HeroSection';
 import ProjectWorkspace from './ProjectWorkspace';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
+import { useProjectDeletion } from '@/hooks/useProjectDeletion';
 import { useAutonomousAgent } from '@/hooks/useAutonomousAgent';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -22,6 +34,7 @@ type Project = Database['public']['Tables']['projects']['Row'];
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const { projects, isLoading, createProject } = useProjects();
+  const { deleteProject } = useProjectDeletion();
   const { executeAutonomousTask, addTask } = useAutonomousAgent();
   const [activeProject, setActiveProject] = useState<Project | null>(null);
 
@@ -31,6 +44,10 @@ const Dashboard = () => {
 
   const handleBackToDashboard = () => {
     setActiveProject(null);
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    await deleteProject.mutateAsync(projectId);
   };
 
   const handleIdeaSubmit = async (idea: string) => {
@@ -147,12 +164,41 @@ const Dashboard = () => {
             ) : projects && projects.length > 0 ? (
               <div className="space-y-3">
                 {projects.map((project) => (
-                  <ProjectCard
-                    key={project.id}
-                    project={project}
-                    isActive={false}
-                    onClick={() => handleProjectSelect(project)}
-                  />
+                  <div key={project.id} className="relative group">
+                    <ProjectCard
+                      project={project}
+                      isActive={false}
+                      onClick={() => handleProjectSelect(project)}
+                    />
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Project</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete "{project.name}"? This action will move the project to trash and it can be restored later.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => handleDeleteProject(project.id)}
+                            className="bg-red-600 hover:bg-red-700"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 ))}
               </div>
             ) : (

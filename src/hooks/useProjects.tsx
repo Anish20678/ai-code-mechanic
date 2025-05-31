@@ -8,21 +8,26 @@ type Project = Database['public']['Tables']['projects']['Row'];
 type ProjectInsert = Database['public']['Tables']['projects']['Insert'];
 type ProjectUpdate = Database['public']['Tables']['projects']['Update'];
 
-export const useProjects = () => {
+export const useProjects = (includeDeleted = false) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: projects, isLoading } = useQuery({
-    queryKey: ['projects'],
+    queryKey: ['projects', includeDeleted],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('projects')
         .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
+        .eq('user_id', user.id);
+
+      if (!includeDeleted) {
+        query = query.is('deleted_at', null);
+      }
+
+      const { data, error } = await query.order('updated_at', { ascending: false });
 
       if (error) throw error;
       return data as Project[];
