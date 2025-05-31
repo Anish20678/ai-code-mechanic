@@ -1,29 +1,37 @@
 
+import { useToast } from '@/components/ui/use-toast';
 import { useCallback } from 'react';
-import { useError } from '@/contexts/ErrorContext';
 
 export const useErrorHandler = () => {
-  const { addError } = useError();
+  const { toast } = useToast();
 
-  const handleError = useCallback((error: Error | string, context?: string) => {
-    const message = typeof error === 'string' ? error : error.message;
-    const details = context ? `Context: ${context}` : undefined;
+  const handleError = useCallback((error: string | Error, context?: string) => {
+    const errorMessage = error instanceof Error ? error.message : error;
+    const fullMessage = context ? `${context}: ${errorMessage}` : errorMessage;
     
-    console.error('Error handled:', { message, context, error });
-    addError(message, details);
-  }, [addError]);
+    console.error('Error occurred:', {
+      message: errorMessage,
+      context,
+      timestamp: new Date().toISOString()
+    });
 
-  const handleAsyncOperation = useCallback(async <T>(
-    operation: () => Promise<T>,
-    errorMessage?: string,
+    toast({
+      title: "Error",
+      description: fullMessage,
+      variant: "destructive",
+    });
+  }, [toast]);
+
+  const handleAsyncOperation = useCallback(async (
+    operation: () => Promise<void>,
+    errorMessage: string,
     context?: string
-  ): Promise<T | null> => {
+  ) => {
     try {
-      return await operation();
+      await operation();
     } catch (error) {
-      const message = errorMessage || (error instanceof Error ? error.message : 'An unexpected error occurred');
-      handleError(message, context);
-      return null;
+      handleError(error instanceof Error ? error : new Error(String(error)), context || errorMessage);
+      throw error;
     }
   }, [handleError]);
 
