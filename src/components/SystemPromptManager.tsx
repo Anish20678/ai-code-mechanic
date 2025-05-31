@@ -8,6 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSystemPrompts } from '@/hooks/useSystemPrompts';
+import type { Database } from '@/integrations/supabase/types';
+
+type PromptCategory = Database['public']['Enums']['prompt_category'];
 
 const SystemPromptManager = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -16,7 +19,7 @@ const SystemPromptManager = () => {
     name: '',
     description: '',
     content: '',
-    category: 'system' as any,
+    category: 'system' as PromptCategory,
   });
 
   const { systemPrompts, isLoading, createPrompt, updatePrompt, deletePrompt, activatePrompt } = useSystemPrompts();
@@ -30,7 +33,7 @@ const SystemPromptManager = () => {
       version: 1,
     });
 
-    setNewPrompt({ name: '', description: '', content: '', category: 'system' });
+    setNewPrompt({ name: '', description: '', content: '', category: 'system' as PromptCategory });
     setShowCreateForm(false);
   };
 
@@ -39,7 +42,7 @@ const SystemPromptManager = () => {
     setEditingId(null);
   };
 
-  const handleActivate = async (id: string, category: string) => {
+  const handleActivate = async (id: string, category: PromptCategory) => {
     await activatePrompt.mutateAsync({ id, category });
   };
 
@@ -106,7 +109,7 @@ const SystemPromptManager = () => {
                 <label className="block text-sm font-medium mb-2">Category</label>
                 <Select
                   value={newPrompt.category}
-                  onValueChange={(value: any) => setNewPrompt({ ...newPrompt, category: value })}
+                  onValueChange={(value: PromptCategory) => setNewPrompt({ ...newPrompt, category: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -249,7 +252,7 @@ const EditPromptForm = ({ prompt, onSave, onCancel }: any) => {
     name: prompt.name,
     description: prompt.description || '',
     content: prompt.content,
-    category: prompt.category,
+    category: prompt.category as PromptCategory,
   });
 
   const handleSave = () => {
@@ -270,7 +273,7 @@ const EditPromptForm = ({ prompt, onSave, onCancel }: any) => {
           <label className="block text-sm font-medium mb-2">Category</label>
           <Select
             value={formData.category}
-            onValueChange={(value: any) => setFormData({ ...formData, category: value })}
+            onValueChange={(value: PromptCategory) => setFormData({ ...formData, category: value })}
           >
             <SelectTrigger>
               <SelectValue />
