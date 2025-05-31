@@ -624,6 +624,145 @@ export type Database = {
           },
         ]
       }
+      execution_artifacts: {
+        Row: {
+          artifact_type: string
+          content: string
+          created_at: string
+          file_path: string | null
+          id: string
+          metadata: Json | null
+          session_id: string
+        }
+        Insert: {
+          artifact_type: string
+          content: string
+          created_at?: string
+          file_path?: string | null
+          id?: string
+          metadata?: Json | null
+          session_id: string
+        }
+        Update: {
+          artifact_type?: string
+          content?: string
+          created_at?: string
+          file_path?: string | null
+          id?: string
+          metadata?: Json | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execution_artifacts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "execution_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      execution_logs: {
+        Row: {
+          details: Json | null
+          id: string
+          log_level: string
+          message: string
+          session_id: string
+          step_number: number
+          timestamp: string
+        }
+        Insert: {
+          details?: Json | null
+          id?: string
+          log_level?: string
+          message: string
+          session_id: string
+          step_number: number
+          timestamp?: string
+        }
+        Update: {
+          details?: Json | null
+          id?: string
+          log_level?: string
+          message?: string
+          session_id?: string
+          step_number?: number
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execution_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "execution_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      execution_sessions: {
+        Row: {
+          completed_at: string | null
+          completed_steps: number
+          conversation_id: string
+          created_at: string
+          error_message: string | null
+          execution_type: string
+          id: string
+          metadata: Json | null
+          project_id: string
+          started_at: string
+          status: string
+          total_steps: number
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_steps?: number
+          conversation_id: string
+          created_at?: string
+          error_message?: string | null
+          execution_type?: string
+          id?: string
+          metadata?: Json | null
+          project_id: string
+          started_at?: string
+          status?: string
+          total_steps?: number
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_steps?: number
+          conversation_id?: string
+          created_at?: string
+          error_message?: string | null
+          execution_type?: string
+          id?: string
+          metadata?: Json | null
+          project_id?: string
+          started_at?: string
+          status?: string
+          total_steps?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execution_sessions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "execution_sessions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
