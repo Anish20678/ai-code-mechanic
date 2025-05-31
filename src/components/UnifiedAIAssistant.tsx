@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Code, Loader2, Settings, MessageSquare, Zap, ChevronDown, Play, FileText, TestTube, Wrench } from 'lucide-react';
+import { Send, Bot, User, Code, Loader2, Settings, MessageSquare, Zap, ChevronDown, Play, FileText, TestTube, Wrench, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -8,12 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useMessages } from '@/hooks/useMessages';
 import { useUnifiedAIAssistant } from '@/hooks/useUnifiedAIAssistant';
 import { useAdvancedAI } from '@/hooks/useAdvancedAI';
 import { useCodeFiles } from '@/hooks/useCodeFiles';
 import { useExecutionSessions } from '@/hooks/useExecutionSessions';
 import ExecutionTracker from '@/components/ExecutionTracker';
+import SystemPromptManager from '@/components/SystemPromptManager';
 import { formatDistanceToNow } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -244,6 +246,19 @@ const UnifiedAIAssistant = ({ conversationId, projectId }: UnifiedAIAssistantPro
               </span>
             </div>
             <div className="flex items-center gap-2">
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <Brain className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>System Prompt Management</DialogTitle>
+                  </DialogHeader>
+                  <SystemPromptManager />
+                </DialogContent>
+              </Dialog>
               <Button
                 variant="ghost"
                 size="sm"

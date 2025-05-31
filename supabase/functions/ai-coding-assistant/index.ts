@@ -28,12 +28,36 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Enhanced system prompts based on mode
+    // Fetch system prompt from database based on mode and category
     let systemPrompt = '';
     
-    switch (mode) {
-      case 'execute':
-        systemPrompt = `You are an AI code executor specialized in React/TypeScript development. You execute commands immediately by providing specific implementation instructions.
+    try {
+      const category = mode === 'execute' ? 'code_executor' : 'chat_assistant';
+      
+      const { data: promptData, error: promptError } = await supabase
+        .from('system_prompts')
+        .select('content')
+        .eq('category', category)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (promptError) {
+        console.log('No custom system prompt found, using default');
+      } else {
+        systemPrompt = promptData.content;
+        console.log('Using custom system prompt from database');
+      }
+    } catch (error) {
+      console.log('Error fetching system prompt, using default:', error);
+    }
+
+    // Fallback to hardcoded prompts if no database prompt found
+    if (!systemPrompt) {
+      switch (mode) {
+        case 'execute':
+          systemPrompt = `You are an AI code executor specialized in React/TypeScript development. You execute commands immediately by providing specific implementation instructions.
 
 Current project context:
 - Tech stack: React, TypeScript, Tailwind CSS, Supabase
@@ -48,10 +72,10 @@ Guidelines:
 6. Integrate with existing Supabase setup when needed
 
 Be direct and efficient in your responses. Focus on execution over explanation.`;
-        break;
-      
-      case 'chat':
-        systemPrompt = `You are a helpful AI coding assistant specialized in React/TypeScript development. Provide guidance, suggestions, and explanations.
+          break;
+        
+        case 'chat':
+          systemPrompt = `You are a helpful AI coding assistant specialized in React/TypeScript development. Provide guidance, suggestions, and explanations.
 
 Current project context:
 - Tech stack: React, TypeScript, Tailwind CSS, Supabase
@@ -66,10 +90,10 @@ Guidelines:
 6. If creating new files, suggest appropriate file names and structure
 
 Be conversational and educational in your responses.`;
-        break;
-      
-      case 'analyze':
-        systemPrompt = `You are an AI code analyzer specialized in React/TypeScript development. Analyze code quality, performance, and architecture.
+          break;
+        
+        case 'analyze':
+          systemPrompt = `You are an AI code analyzer specialized in React/TypeScript development. Analyze code quality, performance, and architecture.
 
 Current project context:
 - Tech stack: React, TypeScript, Tailwind CSS, Supabase
@@ -84,10 +108,10 @@ Guidelines:
 6. Provide actionable recommendations
 
 Focus on thorough analysis and constructive feedback.`;
-        break;
-      
-      case 'optimize':
-        systemPrompt = `You are an AI code optimizer specialized in React/TypeScript development. Focus on performance and code quality improvements.
+          break;
+        
+        case 'optimize':
+          systemPrompt = `You are an AI code optimizer specialized in React/TypeScript development. Focus on performance and code quality improvements.
 
 Current project context:
 - Tech stack: React, TypeScript, Tailwind CSS, Supabase
@@ -102,10 +126,10 @@ Guidelines:
 6. Suggest modern patterns and approaches
 
 Provide optimized code with explanations of improvements.`;
-        break;
-      
-      default:
-        systemPrompt = `You are an expert AI coding assistant specialized in web development. You help users write, debug, and improve their code.
+          break;
+        
+        default:
+          systemPrompt = `You are an expert AI coding assistant specialized in web development. You help users write, debug, and improve their code.
 
 Current project context:
 - Tech stack: React, TypeScript, Tailwind CSS, Supabase
@@ -120,6 +144,7 @@ Guidelines:
 6. If creating new files, suggest appropriate file names and structure
 
 Be concise but thorough in your responses.`;
+      }
     }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -158,7 +183,8 @@ Be concise but thorough in your responses.`;
           metadata: { 
             model: modelName,
             mode: mode,
-            tokens_used: data.usage?.total_tokens || 0
+            tokens_used: data.usage?.total_tokens || 0,
+            system_prompt_used: systemPrompt ? 'custom' : 'default'
           }
         });
 
