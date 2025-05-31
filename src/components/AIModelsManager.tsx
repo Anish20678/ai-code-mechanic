@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Plus, Edit, Trash2, Save, X, Eye, Brain, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -34,7 +33,7 @@ const AIModelsManager = () => {
   const { models, isLoading, createModel, updateModel } = useAIModels();
   const { toast } = useToast();
 
-  const providers: AIProvider[] = ['openai', 'anthropic', 'google', 'deepseek'];
+  const providers: AIProvider[] = ['openai', 'anthropic', 'google', 'mistral', 'local'];
 
   const handleCreate = async () => {
     try {
@@ -117,8 +116,10 @@ const AIModelsManager = () => {
         return 'bg-orange-100 text-orange-800';
       case 'google':
         return 'bg-blue-100 text-blue-800';
-      case 'deepseek':
+      case 'mistral':
         return 'bg-purple-100 text-purple-800';
+      case 'local':
+        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
