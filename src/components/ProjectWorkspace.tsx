@@ -1,11 +1,13 @@
 
 import { useState } from 'react';
-import { FileText, MessageSquare, Bot, Rocket, Settings, Monitor, Play, ArrowLeft } from 'lucide-react';
+import { FileText, MessageSquare, Bot, Rocket, Settings, Monitor, Play, ArrowLeft, Zap, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import EnhancedChatInterface from './EnhancedChatInterface';
 import EnhancedFileExplorer from './EnhancedFileExplorer';
+import EnhancedAIChat from './EnhancedAIChat';
 import AutonomousAgentPanel from './AutonomousAgentPanel';
 import BuildStatus from './BuildStatus';
 import DeploymentManager from './DeploymentManager';
@@ -15,6 +17,7 @@ import ErrorDisplay from './ErrorDisplay';
 import { useConversations } from '@/hooks/useConversations';
 import { useCodeFiles } from '@/hooks/useCodeFiles';
 import { useBuildSystem } from '@/hooks/useBuildSystem';
+import { useAIGenerations } from '@/hooks/useAIGenerations';
 import type { Database } from '@/integrations/supabase/types';
 
 type Project = Database['public']['Tables']['projects']['Row'];
@@ -32,6 +35,7 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
   const { conversations, createConversation } = useConversations(project.id);
   const { updateCodeFile } = useCodeFiles(project.id);
   const { triggerBuild } = useBuildSystem(project.id);
+  const { getTotalCost, getTotalTokens } = useAIGenerations(project.id);
 
   const handleFileSelect = (file: CodeFile) => {
     setSelectedFile(file);
@@ -89,6 +93,17 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
             </div>
           </div>
           <div className="flex items-center space-x-3">
+            {/* AI Usage Stats */}
+            <div className="flex items-center space-x-4 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded">
+              <div className="flex items-center gap-1">
+                <Zap className="h-3 w-3" />
+                <span>${getTotalCost().toFixed(4)}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Brain className="h-3 w-3" />
+                <span>{getTotalTokens().toLocaleString()}</span>
+              </div>
+            </div>
             <Button variant="outline" onClick={handleRun}>
               <Play className="h-4 w-4 mr-2" />
               Run
@@ -115,10 +130,14 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
         <div className="w-96 bg-white border-r border-gray-200 flex flex-col">
           <Tabs defaultValue="chat" className="flex-1 flex flex-col">
             <div className="border-b border-gray-200 px-4 py-2">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="chat" className="flex items-center gap-1">
                   <MessageSquare className="h-4 w-4" />
                   <span className="hidden sm:inline">Chat</span>
+                </TabsTrigger>
+                <TabsTrigger value="ai" className="flex items-center gap-1">
+                  <Zap className="h-4 w-4" />
+                  <span className="hidden sm:inline">AI</span>
                 </TabsTrigger>
                 <TabsTrigger value="agent" className="flex items-center gap-1">
                   <Bot className="h-4 w-4" />
@@ -154,6 +173,27 @@ const ProjectWorkspace = ({ project, onBack }: ProjectWorkspaceProps) => {
                   </div>
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="ai" className="flex-1 m-0 p-4">
+              <div className="h-full">
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Zap className="h-5 w-5 text-blue-500" />
+                    <h3 className="font-medium">Enhanced AI Assistant</h3>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Multi-model AI with specialized prompts for coding tasks.
+                  </p>
+                </div>
+                <div className="h-[calc(100%-80px)]">
+                  <EnhancedAIChat 
+                    projectId={project.id}
+                    category="coding"
+                    initialPrompt="Help me improve this project"
+                  />
+                </div>
+              </div>
             </TabsContent>
 
             <TabsContent value="agent" className="flex-1 m-0">
