@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Plus, Code, LogOut, User, Trash2, Grid3X3, LayoutDashboard } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -44,6 +43,10 @@ const GridDashboard = ({ viewMode, onToggleView }: GridDashboardProps) => {
 
   const handleDeleteProject = async (projectId: string) => {
     await deleteProject.mutateAsync(projectId);
+  };
+
+  const handleProjectOpen = (project: Project) => {
+    window.location.href = `/projects/${project.id}`;
   };
 
   const handleIdeaSubmit = async (idea: string) => {
@@ -168,8 +171,7 @@ const GridDashboard = ({ viewMode, onToggleView }: GridDashboardProps) => {
                 <Link to={`/projects/${project.id}`}>
                   <ProjectCard
                     project={project}
-                    isActive={false}
-                    onClick={() => {}} // Navigation handled by Link
+                    onOpen={handleProjectOpen}
                   />
                 </Link>
                 <AlertDialog>

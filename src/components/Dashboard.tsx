@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Plus, Code, LogOut, User, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -64,6 +63,10 @@ const Dashboard = () => {
       console.error('Failed to create project from idea:', error);
       throw error;
     }
+  };
+
+  const handleProjectOpen = (project: Project) => {
+    window.location.href = `/projects/${project.id}`;
   };
 
   const toggleViewMode = () => {
@@ -156,8 +159,7 @@ const Dashboard = () => {
                   <div key={project.id} className="relative group">
                     <ProjectCard
                       project={project}
-                      isActive={false}
-                      onClick={() => window.location.href = `/projects/${project.id}`}
+                      onOpen={handleProjectOpen}
                     />
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
