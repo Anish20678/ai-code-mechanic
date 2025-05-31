@@ -14,17 +14,26 @@ import { useConversations } from '@/hooks/useConversations';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
+import type { Database } from '@/integrations/supabase/types';
 
-const ProjectWorkspace = () => {
+type CodeFile = Database['public']['Tables']['code_files']['Row'];
+type Project = Database['public']['Tables']['projects']['Row'];
+
+interface ProjectWorkspaceProps {
+  project?: Project;
+  onBack?: () => void;
+}
+
+const ProjectWorkspace = ({ project: propProject, onBack }: ProjectWorkspaceProps = {}) => {
   const { projectId } = useParams<{ projectId: string }>();
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<CodeFile | null>(null);
   const [currentConversationId, setCurrentConversationId] = useState<string>('');
 
-  const { data: projects, isLoading: projectsLoading } = useProjects();
-  const { data: files, isLoading: filesLoading } = useCodeFiles(projectId);
-  const { data: conversations, createConversation } = useConversations(projectId);
+  const { projects, isLoading: projectsLoading } = useProjects();
+  const { codeFiles, isLoading: filesLoading, updateCodeFile } = useCodeFiles(projectId);
+  const { conversations, createConversation } = useConversations(projectId);
 
-  const currentProject = projects?.find(p => p.id === projectId);
+  const currentProject = propProject || projects?.find(p => p.id === projectId);
 
   useEffect(() => {
     if (conversations && conversations.length > 0) {
@@ -41,6 +50,19 @@ const ProjectWorkspace = () => {
       });
     }
   }, [conversations, projectId, filesLoading, createConversation]);
+
+  const handleFileSelect = (file: CodeFile) => {
+    setSelectedFile(file);
+  };
+
+  const handleContentChange = (content: string) => {
+    if (selectedFile) {
+      updateCodeFile.mutate({
+        id: selectedFile.id,
+        content
+      });
+    }
+  };
 
   if (projectsLoading || filesLoading) {
     return (
@@ -79,7 +101,7 @@ const ProjectWorkspace = () => {
             <div className="h-full border-r">
               <EnhancedFileExplorer
                 projectId={projectId!}
-                onFileSelect={setSelectedFile}
+                onFileSelect={handleFileSelect}
                 selectedFile={selectedFile}
               />
             </div>
@@ -92,10 +114,16 @@ const ProjectWorkspace = () => {
             <ResizablePanelGroup direction="vertical">
               <ResizablePanel defaultSize={60} minSize={30}>
                 <div className="h-full">
-                  <CodeEditor
-                    projectId={projectId!}
-                    selectedFile={selectedFile}
-                  />
+                  {selectedFile ? (
+                    <CodeEditor
+                      file={selectedFile}
+                      onContentChange={handleContentChange}
+                    />
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-500">
+                      Select a file to start editing
+                    </div>
+                  )}
                 </div>
               </ResizablePanel>
 
@@ -126,7 +154,6 @@ const ProjectWorkspace = () => {
                     <UnifiedAIAssistant
                       conversationId={currentConversationId}
                       projectId={projectId!}
-                      projectFiles={files || []}
                     />
                   )}
                 </TabsContent>
@@ -134,8 +161,7 @@ const ProjectWorkspace = () => {
                 <TabsContent value="execution" className="flex-1 overflow-hidden">
                   {currentConversationId && (
                     <ExecutionTracker
-                      conversationId={currentConversationId}
-                      projectId={projectId!}
+                      sessionId={currentConversationId}
                     />
                   )}
                 </TabsContent>
