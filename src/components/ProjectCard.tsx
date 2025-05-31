@@ -62,16 +62,16 @@ const ProjectCard = ({ project, isActive, onClick }: ProjectCardProps) => {
   return (
     <Card 
       className={cn(
-        "cursor-pointer transition-all duration-200 hover:shadow-md border",
+        "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02] border group",
         isActive 
           ? "border-gray-900 shadow-sm bg-gray-50" 
           : "border-gray-200 hover:border-gray-300"
       )}
       onClick={onClick}
     >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <h4 className="font-medium text-gray-900 truncate flex-1 mr-2">
+      <CardContent className="p-6">
+        <div className="flex items-start justify-between mb-3">
+          <h4 className="font-semibold text-gray-900 truncate flex-1 mr-2 text-lg group-hover:text-gray-700 transition-colors">
             {project.name}
           </h4>
           <div className="flex items-center space-x-1 flex-shrink-0">
@@ -83,14 +83,22 @@ const ProjectCard = ({ project, isActive, onClick }: ProjectCardProps) => {
         </div>
         
         {project.description && (
-          <p className="text-sm text-gray-500 mb-3 line-clamp-2">
+          <p className="text-sm text-gray-600 mb-4 line-clamp-3 leading-relaxed">
             {project.description}
           </p>
         )}
         
-        <div className="flex items-center text-xs text-gray-400">
-          <Clock className="h-3 w-3 mr-1" />
-          {formatDistanceToNow(new Date(project.updated_at), { addSuffix: true })}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center text-xs text-gray-400">
+            <Clock className="h-3 w-3 mr-1" />
+            {formatDistanceToNow(new Date(project.updated_at), { addSuffix: true })}
+          </div>
+          
+          {project.deployment_url && (
+            <div className="text-xs text-green-600 font-medium">
+              Deployed
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
