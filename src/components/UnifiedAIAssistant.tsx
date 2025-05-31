@@ -1,5 +1,6 @@
+
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Code, Loader2, Settings, MessageSquare, Zap, ChevronDown, Play } from 'lucide-react';
+import { Send, Bot, User, Code, Loader2, Settings, MessageSquare, Zap, ChevronDown, Play, FileText, TestTube, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -9,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useMessages } from '@/hooks/useMessages';
 import { useUnifiedAIAssistant } from '@/hooks/useUnifiedAIAssistant';
+import { useAdvancedAI } from '@/hooks/useAdvancedAI';
 import { useCodeFiles } from '@/hooks/useCodeFiles';
 import { useExecutionSessions } from '@/hooks/useExecutionSessions';
 import ExecutionTracker from '@/components/ExecutionTracker';
@@ -32,12 +34,13 @@ const UnifiedAIAssistant = ({ conversationId, projectId }: UnifiedAIAssistantPro
   
   const { messages, isLoading, createMessage } = useMessages(conversationId);
   const { sendUnifiedMessage, isLoading: aiLoading } = useUnifiedAIAssistant();
+  const { executeCode, analyzeCode, optimizeCode, generateTests, refactorCode, isLoading: advancedLoading } = useAdvancedAI();
   const { codeFiles } = useCodeFiles(projectId);
   const { createSession } = useExecutionSessions(projectId);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim() || aiLoading) return;
+    if (!inputMessage.trim() || aiLoading || advancedLoading) return;
 
     const userMessage = inputMessage.trim();
     setInputMessage('');
@@ -57,31 +60,64 @@ const UnifiedAIAssistant = ({ conversationId, projectId }: UnifiedAIAssistantPro
     }
   };
 
-  const handleImplementPlan = async () => {
+  const handleExecuteCode = async () => {
     try {
       // Create execution session
       const session = await createSession.mutateAsync({
         conversation_id: conversationId,
         project_id: projectId,
         execution_type: 'code_generation',
-        total_steps: 5, // Will be updated based on plan complexity
+        total_steps: 5,
         status: 'running',
       });
 
       setActiveExecutionId(session.id);
       setShowExecutionTracker(true);
 
-      // Create a message to trigger the plan implementation
+      // Create a message to trigger the code execution
       await createMessage.mutateAsync({
         conversation_id: conversationId,
         role: 'user',
-        content: 'Implement the plan',
+        content: 'Execute the plan',
       });
 
-      // Send to AI with execute mode
-      await sendUnifiedMessage('Implement the plan', conversationId, codeFiles, false);
+      // Execute using the advanced AI
+      await executeCode('Execute the discussed plan', projectId, session.id, conversationId, codeFiles);
     } catch (error) {
-      console.error('Failed to implement plan:', error);
+      console.error('Failed to execute code:', error);
+    }
+  };
+
+  const handleQuickAction = async (action: string) => {
+    if (!codeFiles || codeFiles.length === 0) return;
+
+    const userMessage = `${action} for the current codebase`;
+    setInputMessage('');
+
+    try {
+      await createMessage.mutateAsync({
+        conversation_id: conversationId,
+        role: 'user',
+        content: userMessage,
+      });
+
+      switch (action) {
+        case 'Analyze code quality':
+          await analyzeCode(userMessage, conversationId, codeFiles);
+          break;
+        case 'Generate tests':
+          // For now, analyze and suggest test generation
+          await sendUnifiedMessage(`Generate comprehensive tests for the current codebase`, conversationId, codeFiles, false);
+          break;
+        case 'Optimize performance':
+          // Analyze for optimization opportunities
+          await sendUnifiedMessage(`Analyze and optimize the performance of the current codebase`, conversationId, codeFiles, false);
+          break;
+        default:
+          await sendUnifiedMessage(userMessage, conversationId, codeFiles, chatMode);
+      }
+    } catch (error) {
+      console.error('Failed to execute quick action:', error);
     }
   };
 
@@ -155,7 +191,7 @@ const UnifiedAIAssistant = ({ conversationId, projectId }: UnifiedAIAssistantPro
   const getSuggestions = () => {
     const chatSuggestions = [
       "Help me debug this error",
-      "Review my code quality",
+      "Review my code quality", 
       "Suggest improvements",
       "Explain this function",
       "Add error handling",
@@ -172,6 +208,14 @@ const UnifiedAIAssistant = ({ conversationId, projectId }: UnifiedAIAssistantPro
     ];
 
     return chatMode ? chatSuggestions : executeSuggestions;
+  };
+
+  const getQuickActions = () => {
+    return [
+      { label: "Analyze code quality", icon: FileText },
+      { label: "Generate tests", icon: TestTube },
+      { label: "Optimize performance", icon: Wrench }
+    ];
   };
 
   if (isLoading) {
@@ -237,13 +281,13 @@ const UnifiedAIAssistant = ({ conversationId, projectId }: UnifiedAIAssistantPro
             </div>
             <div className="flex items-center gap-2">
               <Button
-                onClick={handleImplementPlan}
-                disabled={aiLoading || createSession.isPending}
+                onClick={handleExecuteCode}
+                disabled={aiLoading || advancedLoading || createSession.isPending}
                 className="bg-orange-600 hover:bg-orange-700 text-white"
                 size="sm"
               >
                 <Play className="h-4 w-4 mr-2" />
-                Implement the Plan
+                Execute Code
               </Button>
               <p className="text-xs text-gray-500">
                 {chatMode ? 'Provides suggestions and guidance' : 'Executes commands immediately'}
@@ -295,7 +339,7 @@ const UnifiedAIAssistant = ({ conversationId, projectId }: UnifiedAIAssistantPro
           )}
           
           {/* Loading indicator for AI response */}
-          {aiLoading && (
+          {(aiLoading || advancedLoading) && (
             <div className="flex justify-start mb-4">
               <div className="flex items-start gap-2">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -321,6 +365,28 @@ const UnifiedAIAssistant = ({ conversationId, projectId }: UnifiedAIAssistantPro
             </div>
           )}
         </ScrollArea>
+
+        {/* Quick Actions */}
+        {codeFiles && codeFiles.length > 0 && (
+          <div className="border-t border-gray-100 p-4 bg-gray-50">
+            <p className="text-xs font-medium text-gray-600 mb-2">Quick Actions:</p>
+            <div className="flex flex-wrap gap-2">
+              {getQuickActions().map((action, index) => (
+                <Button
+                  key={index}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-8"
+                  onClick={() => handleQuickAction(action.label)}
+                  disabled={aiLoading || advancedLoading}
+                >
+                  <action.icon className="h-3 w-3 mr-1" />
+                  {action.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Suggestions */}
         {(!messages || messages.length === 0) && (
@@ -355,14 +421,14 @@ const UnifiedAIAssistant = ({ conversationId, projectId }: UnifiedAIAssistantPro
                 : "Tell me what to implement..."
               }
               className="flex-1"
-              disabled={aiLoading}
+              disabled={aiLoading || advancedLoading}
             />
             <Button 
               type="submit" 
-              disabled={!inputMessage.trim() || aiLoading}
+              disabled={!inputMessage.trim() || aiLoading || advancedLoading}
               className={chatMode ? "bg-blue-600 hover:bg-blue-700" : "bg-orange-600 hover:bg-orange-700"}
             >
-              {aiLoading ? (
+              {aiLoading || advancedLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : chatMode ? (
                 <Send className="h-4 w-4" />

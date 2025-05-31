@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { useAIModels } from '@/hooks/useAIModels';
-import { useMessages } from '@/hooks/useMessages';
 
 export const useUnifiedAIAssistant = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -21,19 +20,20 @@ export const useUnifiedAIAssistant = () => {
       const defaultModel = getDefaultModel();
       const modelId = defaultModel?.id || 'gpt-4o';
       
-      // Prepare the system prompt based on mode
-      const systemPrompt = isChatMode
+      // Determine the appropriate mode and prompt
+      const mode = isChatMode ? 'chat' : 'execute';
+      const systemContext = isChatMode
         ? `You are a helpful AI coding assistant. Provide guidance, suggestions, and explanations. Do not make direct code changes unless explicitly requested. Focus on helping the user understand and improve their code.`
         : `You are an AI code executor. When given commands, execute them immediately by making the necessary code changes. Be direct and efficient in your responses. If a task requires multiple steps, complete them all in one response.`;
 
       const { data, error } = await supabase.functions.invoke('ai-coding-assistant', {
         body: {
-          message: `${systemPrompt}\n\nUser request: ${message}`,
+          message: `${systemContext}\n\nUser request: ${message}`,
           conversationId,
           projectFiles,
           modelId,
           modelName: defaultModel?.model_name || 'gpt-4o',
-          mode: isChatMode ? 'chat' : 'execute'
+          mode
         }
       });
 
@@ -52,39 +52,37 @@ export const useUnifiedAIAssistant = () => {
     }
   };
 
-  const executeCodeGeneration = async (
+  const executeFileOperations = async (
     prompt: string, 
-    projectId: string, 
-    fileType?: string, 
+    projectId: string,
+    sessionId: string,
+    conversationId: string,
     existingFiles?: any[]
   ) => {
     setIsLoading(true);
     try {
-      const defaultModel = getDefaultModel();
-      
-      const { data, error } = await supabase.functions.invoke('code-generator', {
+      const { data, error } = await supabase.functions.invoke('ai-file-executor', {
         body: {
-          prompt: `[EXECUTE MODE] ${prompt}`,
+          prompt,
           projectId,
-          fileType,
+          sessionId,
+          conversationId,
           existingFiles,
-          modelId: defaultModel?.id || 'gpt-4o',
-          modelName: defaultModel?.model_name || 'gpt-4o',
-          executeMode: true
+          mode: 'execute'
         }
       });
 
       if (error) throw error;
 
       return {
-        code: data.code,
-        suggestedFilename: data.suggestedFilename,
-        changes: data.changes
+        response: data.response,
+        operations: data.operations,
+        executionResults: data.executionResults
       };
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to execute code generation",
+        description: error.message || "Failed to execute file operations",
         variant: "destructive",
       });
       throw error;
@@ -93,16 +91,20 @@ export const useUnifiedAIAssistant = () => {
     }
   };
 
-  const analyzeCode = async (code: string, context?: string) => {
+  const analyzeCodeWithAI = async (
+    code: string, 
+    conversationId: string,
+    context?: string
+  ) => {
     setIsLoading(true);
     try {
-      const defaultModel = getDefaultModel();
-      
-      const { data, error } = await supabase.functions.invoke('ai-coding-assistant', {
+      const { data, error } = await supabase.functions.invoke('ai-file-executor', {
         body: {
-          message: `[CHAT MODE] Analyze this code and provide insights: ${context ? `Context: ${context}\n` : ''}Code: ${code}`,
-          modelId: defaultModel?.id || 'gpt-4o',
-          modelName: defaultModel?.model_name || 'gpt-4o',
+          prompt: `[ANALYSIS MODE] Analyze this code and provide insights: ${context ? `Context: ${context}\n` : ''}Code: ${code}`,
+          projectId: '',
+          sessionId: '',
+          conversationId,
+          existingFiles: [],
           mode: 'analyze'
         }
       });
@@ -124,8 +126,8 @@ export const useUnifiedAIAssistant = () => {
 
   return {
     sendUnifiedMessage,
-    executeCodeGeneration,
-    analyzeCode,
+    executeFileOperations,
+    analyzeCodeWithAI,
     isLoading
   };
 };

@@ -19,17 +19,93 @@ serve(async (req) => {
   }
 
   try {
-    const { message, conversationId, projectFiles } = await req.json();
+    const { message, conversationId, projectFiles, modelId = 'gpt-4o', modelName = 'gpt-4o', mode = 'chat' } = await req.json();
     
-    console.log('AI Coding Assistant called with:', { message, conversationId });
+    console.log('AI Coding Assistant called with:', { message, conversationId, mode });
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Enhanced system prompt for coding assistance
-    const systemPrompt = `You are an expert AI coding assistant specialized in web development. You help users write, debug, and improve their code.
+    // Enhanced system prompts based on mode
+    let systemPrompt = '';
+    
+    switch (mode) {
+      case 'execute':
+        systemPrompt = `You are an AI code executor specialized in React/TypeScript development. You execute commands immediately by providing specific implementation instructions.
+
+Current project context:
+- Tech stack: React, TypeScript, Tailwind CSS, Supabase
+- Available files: ${projectFiles ? JSON.stringify(projectFiles, null, 2) : 'No files provided'}
+
+Guidelines:
+1. Provide immediate, actionable implementation steps
+2. Include complete code examples ready for implementation
+3. Focus on specific file changes and operations
+4. Ensure all code follows React/TypeScript best practices
+5. Use Tailwind CSS for styling
+6. Integrate with existing Supabase setup when needed
+
+Be direct and efficient in your responses. Focus on execution over explanation.`;
+        break;
+      
+      case 'chat':
+        systemPrompt = `You are a helpful AI coding assistant specialized in React/TypeScript development. Provide guidance, suggestions, and explanations.
+
+Current project context:
+- Tech stack: React, TypeScript, Tailwind CSS, Supabase
+- Available files: ${projectFiles ? JSON.stringify(projectFiles, null, 2) : 'No files provided'}
+
+Guidelines:
+1. Provide clear, practical coding solutions
+2. Explain your reasoning step by step
+3. Include code examples when helpful
+4. Suggest best practices and optimizations
+5. Help debug errors with specific solutions
+6. If creating new files, suggest appropriate file names and structure
+
+Be conversational and educational in your responses.`;
+        break;
+      
+      case 'analyze':
+        systemPrompt = `You are an AI code analyzer specialized in React/TypeScript development. Analyze code quality, performance, and architecture.
+
+Current project context:
+- Tech stack: React, TypeScript, Tailwind CSS, Supabase
+- Available files: ${projectFiles ? JSON.stringify(projectFiles, null, 2) : 'No files provided'}
+
+Guidelines:
+1. Analyze code structure and architecture
+2. Identify potential issues and improvements
+3. Suggest performance optimizations
+4. Review for best practices compliance
+5. Check for security considerations
+6. Provide actionable recommendations
+
+Focus on thorough analysis and constructive feedback.`;
+        break;
+      
+      case 'optimize':
+        systemPrompt = `You are an AI code optimizer specialized in React/TypeScript development. Focus on performance and code quality improvements.
+
+Current project context:
+- Tech stack: React, TypeScript, Tailwind CSS, Supabase
+- Available files: ${projectFiles ? JSON.stringify(projectFiles, null, 2) : 'No files provided'}
+
+Guidelines:
+1. Optimize for performance and efficiency
+2. Improve code readability and maintainability
+3. Reduce bundle size where possible
+4. Implement proper error handling
+5. Follow React performance best practices
+6. Suggest modern patterns and approaches
+
+Provide optimized code with explanations of improvements.`;
+        break;
+      
+      default:
+        systemPrompt = `You are an expert AI coding assistant specialized in web development. You help users write, debug, and improve their code.
 
 Current project context:
 - Tech stack: React, TypeScript, Tailwind CSS, Supabase
@@ -44,6 +120,7 @@ Guidelines:
 6. If creating new files, suggest appropriate file names and structure
 
 Be concise but thorough in your responses.`;
+    }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -52,13 +129,13 @@ Be concise but thorough in your responses.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: modelName,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
         ],
-        temperature: 0.7,
-        max_tokens: 2000,
+        temperature: mode === 'execute' ? 0.3 : 0.7,
+        max_tokens: mode === 'analyze' ? 3000 : 2000,
       }),
     });
 
@@ -70,22 +147,24 @@ Be concise but thorough in your responses.`;
     const data = await response.json();
     const aiResponse = data.choices[0].message.content;
 
-    // Store the AI response in the database
-    const { error: dbError } = await supabase
-      .from('messages')
-      .insert({
-        conversation_id: conversationId,
-        role: 'assistant',
-        content: aiResponse,
-        metadata: { 
-          model: 'gpt-4o-mini',
-          tokens_used: data.usage?.total_tokens || 0
-        }
-      });
+    // Store the AI response in the database only if conversationId is provided
+    if (conversationId) {
+      const { error: dbError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          role: 'assistant',
+          content: aiResponse,
+          metadata: { 
+            model: modelName,
+            mode: mode,
+            tokens_used: data.usage?.total_tokens || 0
+          }
+        });
 
-    if (dbError) {
-      console.error('Database error:', dbError);
-      throw new Error('Failed to save AI response to database');
+      if (dbError) {
+        console.error('Database error:', dbError);
+      }
     }
 
     return new Response(JSON.stringify({ response: aiResponse }), {
