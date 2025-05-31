@@ -40,7 +40,11 @@ export const useUnifiedAIAssistant = () => {
   ) => {
     setIsLoading(true);
     try {
-      console.log('sendUnifiedMessage called:', { message: message.substring(0, 100), conversationId, isChatMode, filesCount: projectFiles?.length });
+      console.log('=== sendUnifiedMessage called ===');
+      console.log('Message preview:', message.substring(0, 100));
+      console.log('Conversation ID:', conversationId);
+      console.log('Is Chat Mode:', isChatMode);
+      console.log('Files count:', projectFiles?.length);
 
       // Store user message immediately
       const { data: userMessage, error: userMessageError } = await supabase
@@ -64,22 +68,19 @@ export const useUnifiedAIAssistant = () => {
 
       console.log('User message stored successfully:', userMessage.id);
 
-      // Fetch conversation history for context
-      const conversationHistory = await fetchConversationHistory(conversationId);
-
       const defaultModel = getDefaultModel();
       const modelId = defaultModel?.id || 'gpt-4o';
       
-      // In execute mode, use the ai-file-executor for actual code changes
+      // Execute mode: use ai-file-executor for code changes
       if (!isChatMode) {
-        console.log('Execute mode: Using ai-file-executor for code changes');
+        console.log('=== EXECUTE MODE: Using ai-file-executor ===');
         
         // Create execution session for tracking
         const { data: sessionData, error: sessionError } = await supabase
           .from('execution_sessions')
           .insert({
             conversation_id: conversationId,
-            project_id: projectFiles?.[0]?.project_id || '',
+            project_id: projectFiles?.[0]?.project_id || 'default',
             execution_type: 'unified_execute',
             total_steps: 3,
             status: 'running'
@@ -100,21 +101,20 @@ export const useUnifiedAIAssistant = () => {
 
 Project Context:
 - Total Files: ${projectFiles?.length || 0}
-- File Types: ${projectFiles?.map(f => f.file_path.split('.').pop()).filter((ext, i, arr) => arr.indexOf(ext) === i).join(', ') || 'none'}
-
-Recent Conversation:
-${conversationHistory.slice(-3).map(m => `${m.role}: ${m.content.substring(0, 200)}`).join('\n')}
+- Project ID: ${projectFiles?.[0]?.project_id || 'default'}
 
 Please implement the user's request by creating or modifying the necessary files. Provide complete, working code that follows React/TypeScript best practices.`;
+
+        console.log('Calling ai-file-executor with contextual prompt...');
 
         // Call ai-file-executor for code execution
         const { data: executeData, error: executeError } = await supabase.functions.invoke('ai-file-executor', {
           body: {
             prompt: contextualPrompt,
-            projectId: projectFiles?.[0]?.project_id || '',
+            projectId: projectFiles?.[0]?.project_id || 'default',
             sessionId,
             conversationId,
-            existingFiles: projectFiles?.slice(0, 20) || [], // Limit context size
+            existingFiles: projectFiles?.slice(0, 20) || [],
             mode: 'execute'
           }
         });
@@ -124,7 +124,8 @@ Please implement the user's request by creating or modifying the necessary files
           throw new Error(`Code execution error: ${executeError.message || 'Unknown error'}`);
         }
 
-        console.log('AI file executor completed:', executeData);
+        console.log('=== AI file executor completed successfully ===');
+        console.log('Execute data:', executeData);
 
         toast({
           title: "Code Executed",
@@ -134,9 +135,11 @@ Please implement the user's request by creating or modifying the necessary files
         return executeData.response;
       } else {
         // Chat mode: use the regular ai-coding-assistant
-        console.log('Chat mode: Using ai-coding-assistant for guidance');
+        console.log('=== CHAT MODE: Using ai-coding-assistant ===');
         
-        const systemContext = `You are Lovable, a helpful AI coding assistant. Provide clear, concise guidance and explanations. Focus on helping the user understand concepts and solve problems.
+        const conversationHistory = await fetchConversationHistory(conversationId);
+        
+        const systemContext = `You are Lovable, a helpful AI coding assistant. Provide clear, concise guidance and explanations.
 
 Current Project Context:
 - Tech Stack: React, TypeScript, Tailwind CSS, Supabase
@@ -169,147 +172,15 @@ Be conversational and educational in your responses.`;
           throw new Error(`AI service error: ${error.message || 'Unknown error'}`);
         }
 
-        console.log('AI coding assistant completed successfully');
+        console.log('=== AI coding assistant completed successfully ===');
         return data.response;
       }
     } catch (error: any) {
-      console.error('AI Assistant error:', error);
+      console.error('=== AI Assistant error ===', error);
       
       const errorMessage = error.message || "Failed to get AI response";
       
       handleError(errorMessage, 'UnifiedAIAssistant.sendUnifiedMessage');
-      
-      throw new Error(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const executeFileOperations = async (
-    prompt: string, 
-    projectId: string,
-    sessionId: string,
-    conversationId: string,
-    existingFiles?: any[]
-  ) => {
-    setIsLoading(true);
-    try {
-      // Create user message for file operations
-      const { error: userMessageError } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          role: 'user',
-          content: prompt,
-          metadata: { 
-            mode: 'file_execute',
-            session_id: sessionId,
-            timestamp: new Date().toISOString()
-          }
-        });
-
-      if (userMessageError) {
-        console.error('Error storing user message:', userMessageError);
-        throw new Error(`Failed to store message: ${userMessageError.message}`);
-      }
-
-      const { data, error } = await supabase.functions.invoke('ai-file-executor', {
-        body: {
-          prompt,
-          projectId,
-          sessionId,
-          conversationId,
-          existingFiles,
-          mode: 'execute'
-        }
-      });
-
-      if (error) {
-        console.error('File executor error:', error);
-        throw new Error(`File operation error: ${error.message || 'Unknown error'}`);
-      }
-
-      toast({
-        title: "Files Updated",
-        description: "AI has executed file operations successfully",
-      });
-
-      return {
-        response: data.response,
-        operations: data.operations,
-        executionResults: data.executionResults
-      };
-    } catch (error: any) {
-      console.error('File executor error:', error);
-      
-      const errorMessage = error.message || "Failed to execute file operations";
-      
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      
-      throw new Error(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const analyzeCodeWithAI = async (
-    code: string, 
-    conversationId: string,
-    context?: string
-  ) => {
-    setIsLoading(true);
-    try {
-      // Create user message for code analysis
-      const analysisPrompt = `[ANALYSIS MODE] Analyze this code and provide insights: ${context ? `Context: ${context}\n` : ''}Code: ${code}`;
-      
-      const { error: userMessageError } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          role: 'user',
-          content: analysisPrompt,
-          metadata: { 
-            mode: 'analyze',
-            timestamp: new Date().toISOString()
-          }
-        });
-
-      if (userMessageError) {
-        console.error('Error storing user message:', userMessageError);
-        throw new Error(`Failed to store message: ${userMessageError.message}`);
-      }
-
-      const { data, error } = await supabase.functions.invoke('ai-file-executor', {
-        body: {
-          prompt: analysisPrompt,
-          projectId: '',
-          sessionId: '',
-          conversationId,
-          existingFiles: [],
-          mode: 'analyze'
-        }
-      });
-
-      if (error) {
-        console.error('Analysis error:', error);
-        throw new Error(`Code analysis error: ${error.message || 'Unknown error'}`);
-      }
-
-      return data.response;
-    } catch (error: any) {
-      console.error('Code analysis error:', error);
-      
-      const errorMessage = error.message || "Failed to analyze code";
-      
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
       
       throw new Error(errorMessage);
     } finally {

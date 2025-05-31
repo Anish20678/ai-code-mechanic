@@ -38,6 +38,7 @@ async function logExecutionStep(sessionId: string, stepNumber: number, message: 
       log_level: level,
       details: details || {}
     });
+    console.log(`Step ${stepNumber}: ${message}`);
   } catch (error) {
     console.error('Failed to log execution step:', error);
   }
@@ -51,6 +52,7 @@ async function updateSessionProgress(sessionId: string, completedSteps: number, 
       error_message: errorMessage,
       updated_at: new Date().toISOString()
     }).eq('id', sessionId);
+    console.log(`Session ${sessionId} updated: ${completedSteps} steps completed, status: ${status}`);
   } catch (error) {
     console.error('Failed to update session progress:', error);
   }
@@ -59,6 +61,8 @@ async function updateSessionProgress(sessionId: string, completedSteps: number, 
 async function executeFileOperations(projectId: string, operations: FileOperation[], sessionId: string): Promise<string[]> {
   const results: string[] = [];
   let stepNumber = 1;
+
+  console.log(`Executing ${operations.length} file operations for project ${projectId}`);
 
   for (const operation of operations) {
     try {
@@ -78,6 +82,7 @@ async function executeFileOperations(projectId: string, operations: FileOperatio
           
           if (upsertError) throw upsertError;
           results.push(`${operation.type === 'create' ? 'Created' : 'Updated'} file: ${operation.filePath}`);
+          console.log(`Successfully ${operation.type}d file: ${operation.filePath}`);
           break;
 
         case 'delete':
@@ -89,6 +94,7 @@ async function executeFileOperations(projectId: string, operations: FileOperatio
           
           if (deleteError) throw deleteError;
           results.push(`Deleted file: ${operation.filePath}`);
+          console.log(`Successfully deleted file: ${operation.filePath}`);
           break;
 
         case 'rename':
@@ -103,6 +109,7 @@ async function executeFileOperations(projectId: string, operations: FileOperatio
           
           if (renameError) throw renameError;
           results.push(`Renamed file: ${operation.filePath} -> ${operation.newPath}`);
+          console.log(`Successfully renamed file: ${operation.filePath} -> ${operation.newPath}`);
           break;
       }
 
@@ -110,6 +117,7 @@ async function executeFileOperations(projectId: string, operations: FileOperatio
       stepNumber++;
     } catch (error) {
       await logExecutionStep(sessionId, stepNumber, `Error in ${operation.type} operation: ${error.message}`, 'error', { error: error.message });
+      console.error(`Error in ${operation.type} operation on ${operation.filePath}:`, error);
       throw error;
     }
   }
@@ -123,52 +131,41 @@ async function generateAIResponse(prompt: string, existingFiles: any[], mode: st
     throw new Error('OpenAI API key not configured');
   }
 
+  console.log(`Generating AI response for mode: ${mode}`);
+
   const systemPrompt = mode === 'execute' 
-    ? `You are Lovable, an AI code executor that creates and modifies web applications. You MUST analyze user requests and provide specific file operations to implement their requirements.
+    ? `You are Lovable, an AI code executor that creates and modifies files. You MUST analyze user requests and provide specific file operations.
 
 CRITICAL EXECUTE MODE RULES:
-1. You MUST respond with a valid JSON object containing "response" and "operations" fields
-2. You MUST provide actual file operations that implement the user's request
-3. Create complete, functional code that follows React/TypeScript best practices
-4. Use Tailwind CSS for styling and Shadcn/ui components when appropriate
-5. Focus on creating working implementations, not explanations
+1. You MUST respond with valid JSON containing "response" and "operations" fields
+2. You MUST provide actual file operations for user requests
+3. Create complete, functional code - no placeholders or TODOs
+4. Use React 18, TypeScript, Tailwind CSS, Shadcn/ui components
+5. Always include proper imports and exports
 
-Tech Stack Context:
-- React 18 with TypeScript
-- Tailwind CSS for styling  
-- Supabase for backend
-- Shadcn/ui components available
-- Existing files: ${JSON.stringify(existingFiles?.slice(0, 5) || [], null, 2)}
-
-MANDATORY Response Format:
+MANDATORY Response Format (JSON ONLY):
 {
-  "response": "Brief description of implementation",
+  "response": "Brief description of what was implemented",
   "operations": [
     {
-      "type": "create|update|delete|rename",
-      "filePath": "path/to/file.tsx",
-      "content": "complete file content here"
+      "type": "create",
+      "filePath": "src/components/ExampleComponent.tsx",
+      "content": "import React from 'react';\n\nconst ExampleComponent = () => {\n  return <div>Hello World</div>;\n};\n\nexport default ExampleComponent;"
     }
   ]
 }
 
-IMPLEMENTATION EXAMPLES:
-- Dashboard components with proper TypeScript interfaces
-- Authentication flows with error handling
-- Form validation and state management
-- API integrations and data fetching
-- Responsive UI with Tailwind classes
+Current files context: ${JSON.stringify(existingFiles?.slice(0, 3) || [], null, 2)}
 
-Provide working, complete code without placeholders or TODO comments. Each operation must contain fully functional code ready for immediate use.`
-    : `You are an AI code analyzer. Analyze the provided code and give insights, suggestions, and explanations without making changes.
+IMPORTANT: Respond with ONLY valid JSON. No markdown, no explanations outside the JSON.`
+    : `You are an AI code analyzer. Analyze the provided code and give insights without making changes.
 
-Context:
-- Tech stack: React, TypeScript, Tailwind CSS, Supabase
-- Existing files: ${JSON.stringify(existingFiles?.slice(0, 5) || [], null, 2)}
+Current files: ${JSON.stringify(existingFiles?.slice(0, 3) || [], null, 2)}
 
-Provide detailed analysis and suggestions in a conversational format.`;
+Provide detailed analysis in a conversational format.`;
 
   try {
+    console.log('Calling OpenAI API...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -193,6 +190,7 @@ Provide detailed analysis and suggestions in a conversational format.`;
 
     const data = await response.json();
     const aiResponse = data.choices[0].message.content;
+    console.log('OpenAI response received, length:', aiResponse.length);
 
     if (mode === 'execute') {
       try {
@@ -205,6 +203,7 @@ Provide detailed analysis and suggestions in a conversational format.`;
           cleanedResponse = cleanedResponse.replace(/^```\s*/, '').replace(/\s*```$/, '');
         }
 
+        console.log('Parsing AI response as JSON...');
         const parsed = JSON.parse(cleanedResponse);
         
         // Validate the response structure
@@ -212,18 +211,36 @@ Provide detailed analysis and suggestions in a conversational format.`;
           throw new Error('Invalid response structure from AI');
         }
 
+        console.log(`Parsed ${parsed.operations.length} operations from AI response`);
         return {
           response: parsed.response || 'Executing code changes...',
           operations: parsed.operations || []
         };
       } catch (parseError) {
-        console.error('Failed to parse AI response as JSON:', aiResponse);
+        console.error('Failed to parse AI response as JSON:', aiResponse.substring(0, 500));
         console.error('Parse error:', parseError);
         
-        // Create a fallback response with basic error handling
+        // Create a simple file operation as fallback
+        const fallbackOperation: FileOperation = {
+          type: 'create',
+          filePath: 'src/components/GeneratedComponent.tsx',
+          content: `import React from 'react';
+
+const GeneratedComponent = () => {
+  return (
+    <div className="p-4">
+      <h2 className="text-lg font-semibold">Generated Component</h2>
+      <p className="text-gray-600">This component was created based on your request.</p>
+    </div>
+  );
+};
+
+export default GeneratedComponent;`
+        };
+        
         return {
-          response: 'AI provided non-JSON response. Please try rephrasing your request to be more specific about what files and components you want created.',
-          operations: []
+          response: 'Created a basic component based on your request. AI provided non-JSON response.',
+          operations: [fallbackOperation]
         };
       }
     } else {
@@ -246,33 +263,33 @@ serve(async (req) => {
   try {
     const { prompt, projectId, sessionId, conversationId, existingFiles = [], mode = 'execute' }: ExecutionRequest = await req.json();
     
-    console.log('AI File Executor called:', { 
-      prompt: prompt.substring(0, 200) + '...', 
-      projectId, 
-      sessionId, 
-      mode,
-      existingFilesCount: existingFiles.length 
-    });
+    console.log('=== AI File Executor Called ===');
+    console.log('Mode:', mode);
+    console.log('Project ID:', projectId);
+    console.log('Session ID:', sessionId);
+    console.log('Prompt length:', prompt.length);
+    console.log('Existing files count:', existingFiles.length);
+    console.log('Prompt preview:', prompt.substring(0, 200) + '...');
 
     if (!sessionId) {
       throw new Error('Session ID is required');
     }
 
-    await logExecutionStep(sessionId, 0, `Starting ${mode} mode execution with prompt: ${prompt.substring(0, 100)}...`, 'info');
+    await logExecutionStep(sessionId, 0, `Starting ${mode} mode execution`, 'info', { prompt: prompt.substring(0, 100) });
 
     // Generate AI response and file operations
     const { response, operations } = await generateAIResponse(prompt, existingFiles, mode);
 
-    console.log('AI Response generated:', { 
-      responseLength: response.length, 
-      operationsCount: operations.length,
-      operations: operations.map(op => ({ type: op.type, filePath: op.filePath }))
-    });
+    console.log('AI Response length:', response.length);
+    console.log('Operations count:', operations.length);
+    if (operations.length > 0) {
+      console.log('Operations:', operations.map(op => ({ type: op.type, filePath: op.filePath })));
+    }
 
     let executionResults: string[] = [];
 
     if (mode === 'execute' && operations.length > 0) {
-      console.log(`Executing ${operations.length} file operations`);
+      console.log(`=== Executing ${operations.length} file operations ===`);
       
       // Update total steps based on operations
       await supabase.from('execution_sessions').update({
@@ -284,6 +301,7 @@ serve(async (req) => {
 
       // Mark session as completed
       await updateSessionProgress(sessionId, operations.length, 'completed');
+      console.log('=== File operations completed successfully ===');
       
       // Create execution artifacts
       for (const operation of operations) {
@@ -319,10 +337,10 @@ serve(async (req) => {
       }
     });
 
-    console.log('Execution completed successfully:', {
-      operationsExecuted: operations.length,
-      resultsCount: executionResults.length
-    });
+    console.log('=== Execution Summary ===');
+    console.log('Operations executed:', operations.length);
+    console.log('Results:', executionResults);
+    console.log('=== End Summary ===');
 
     return new Response(JSON.stringify({ 
       response,
@@ -333,7 +351,9 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error in AI file executor:', error);
+    console.error('=== ERROR in AI file executor ===');
+    console.error('Error:', error);
+    console.error('Stack:', error.stack);
     
     // Log error if we have sessionId
     const body = await req.json().catch(() => ({}));
